@@ -1,0 +1,214 @@
+* Problem
+*Input*: five lines. Each is at most 255 chars. Each describes a
+``neighborhood''.
+
+*Output*: five lines. Each corresponds to one line of the input. Each
+contains two integers separated by a space: the minimum number of
+streets walked to obtain all the candy and the total amount of candy
+obtained.
+
+* Code to represent trees
+Here is how we represent a node:
+#+begin_src C
+  typedef struct node {
+      int candy;
+      struct node *left, *right;
+  } node;
+#+end_src
+
+A couple of functions to build trees:
+#+begin_src C
+  node *new_house(int candy) {
+      node *house = malloc(sizeof(node));
+      if (house == NULL) {
+          fprintf(stderr, "malloc error\n");
+          exit(1);
+      }
+      house->candy = candy;
+      house->left = NULL;
+      house->right = NULL;
+      return house;
+  }
+
+  node *new_nonhouse(node *left, node *right) {
+      node *nonhouse = malloc(sizeof(node));
+      if (nonhouse == NULL) {
+          fprintf(stderr, "malloc error\n");
+          exit(1);
+      }
+      nonhouse->left = left;
+      nonhouse->right = right;
+      return nonhouse;
+  }
+#+end_src
+
+* Total amount of candy
+How can we collect all the candy? One way is to use a stack
+(pp. 39-45). But there is a better way: using a recursive function.
+
+We just need two rules:
+- Rule1. If the root of the tree is a house node, then the total
+  amount of candy in the tree equals the amount of candy at that
+  house.
+- Rule 2. If the root of the tree is a nonhouse node, then the total
+  amount of candy in the tree equals the total amount of candy in the
+  left subtree plus the total amount of candy in the right subtree.
+
+In C:
+#+begin_src C
+  int tree_candy(node *tree) {
+      if (!tree->left && !tree->right)
+          return tree->candy;
+      return tree_candy(tree->left) + tree_candy(tree->right);
+  }
+#+end_src
+
+* Minimum number of streets
+How to calculate the minimum number of streets that must be walked to
+obtain all the candy?
+
+We can great simplify the problem by returning to the root: we can
+subtract off the extra street at the end and calculate the minimum
+number of streets walked (Cf. p. 50).
+
+Here are two rules we can use:
+- Rule 1. If the root of the street is a house node, then the number
+  of streets we walk is zero.
+- Rule 2. If the root of the tree is a nonhouse node, then the number
+  of streets we walk is the number of streets we walk for the left
+  subtree plus the number of streets we walk for the rigth subtree
+  plus 4.
+
+In code:
+#+begin_src C
+  int tree_streets(node *tree) {
+      if (!tree->left && !tree->right)
+          return 0;
+      return tree_candy(tree->left) + tree_candy(tree->right) + 4;
+  }
+#+end_src
+
+If we walk through the tree in Figure 2-2 starting at H and ending at
+H, collecting all the candy, visiting each each house once and without
+unnecessarily walk streets, then, no matter how we walk the tree, we
+walk 32 streets.
+
+The minimum number of streets that we can walk is 26 (we have manually
+calculate earlier). How do we get to 26? 32 minus 6. Is there a
+reason?
+
+It turns out that 6 is the height of the tree and that, in order to
+get the minimum number of streets walked, we can just subtract that
+number. (Cf. p. 51)
+
+How to calculate the heigth? We can use, again, two rules:
+- Rule 1. If the root of the tree is a house node, then the tree's
+  height is zero.
+- Rule 2. If the root of the tree is a nonhouse, then the tree's
+  height is one more than the maximum of the left subtree's height and
+  the right subtree's height.
+
+In C:
+#+begin_src C
+int max(int v1, int v2) {
+    if (v1 > v2)
+	return v1;
+    else
+	return v2;
+}
+
+int tree_height(node *tree) {
+    if (!tree->left && !tree->right)
+	return 0;
+    return 1 + max(tree_height(tree->left), tree_height(tree->right));
+}
+#+end_src
+
+* Solving the problem for a given tree
+
+With ~tree_streets~ and ~tree_height~ we can calculate the minimum
+number of streets. With ~tree_candy~ we can calculate the total amount
+of candy. We can, then, solve the problem for a given tree:
+#+begin_src C
+  void tree_solve(node *tree) {
+      int candy = tree_candy(tree);
+      int height = tree_height(tree);
+      int num_streets = tree_streets(tree) - height;
+      printf("%d %d\n", num_streets, candy);
+  }
+#+end_src
+
+* Reading the input
+Trees are textually represented following these two rules
+(Cf. pp. 53-4):
+
+- Rule 1. If the text is the digits of integer c, then the tree is a
+  single house node with c candy.
+
+- Rule 2. If the text starts with an opening parenthesis, then the root
+  of the tree is a nonhouse node. After the opening parenthesis, the
+  text contains the tree’s left subtree, a space, the tree’s right
+  subtree, and a closing parenthesis.
+
+Here is the code. (See pp. 54-7 for the explanation.  Important
+technique highlighted: sometimes we might want recursive calls to pass
+values between them. A way to do so is using a pointer --- here ~pos~)
+
+#+begin_src C
+  node *read_tree_helper(char *line, int *pos) {
+      node *tree;
+      tree = malloc(sizeof(node));
+      if (tree == NULL) {
+          fprintf(stderr, "malloc error\n");
+          exit(1);
+      }
+      if (line[*pos] == '(') {
+          (*pos)++;
+          tree->left = read_tree_helper(line, pos);
+          (*pos)++;
+          tree->right = read_tree_helper(line, pos);
+          (*pos)++;
+          return tree;
+      } else {
+          tree->left = NULL;
+          tree->right = NULL;
+          tree->candy = line[*pos] - '0';
+          (*pos)++;
+          if (line[*pos] != ')' && line[*pos] != ' ' &&
+              line[*pos] != '\0') {
+              tree->candy = tree->candy * 10 + line[*pos] - '0';
+              (*pos)++;
+          }
+          return tree;
+      }
+  }
+#+end_src
+
+And finally:
+#+begin_src C
+  #define SIZE 255
+  #define TEST_CASES 5
+  int main(void) {
+      int i;
+      char line[SIZE + 1];
+      node *tree;
+      for (i = 0; i < TEST_CASES; i++) {
+          gets(line);
+          tree = read_tree(line);
+          tree_solve(tree);
+      }
+      return 0;
+  }
+#+end_src
+
+#+begin_quote
+It’s not always easy to know whether recursion will offer a clean
+solution to a problem. Here’s the telltale sign: whenever a problem
+can be solved by combining solutions to smaller subproblems, you
+should try recursion. [...] think back to calculating the total amount
+of candy in the tree.  This is not an easy problem. What if someone
+told you the total amount of candy in the left subtree and the total
+amount of candy in the right subtree?  That would make the problem
+easier. A problem made easier by virtue of knowing its subproblem
+solutions is a strong clue that recursion applies.
+#+end_quote
