@@ -1,0 +1,186 @@
+* The problem
+Homer has /t/ minutes and some burgers of two types. One type takes
+/m/ minutes to eat and the other type takes /m/ minutes to eat. Homer
+wants to spend all /t/ minutes eating burgers, but sometimes that's
+not possible. If he can spend exactly /t/ minutes eating burgers, we
+have to determine the max number of burgers he cant eat. If he can't
+spend /t/ minutes eating burgers, we have to determin the max amount
+of time he can spend eating burgers.
+
+** Input
+#+begin_quote
+We read test cases until there is no more input. Each test case is
+represented by a line of three integers: /m/, the number of minutes it
+takes to eat the first kind of burger; /n/, the number of minutes it
+takes to eat the second kind of burger; and /t/, the number of minutes
+that Homer will spend eating burgers and drinking beer. Each /m/, /n/,
+and /t/ value is less than 10,000. (72)
+#+end_quote
+
+** Output
+#+begin_quote
+For each test case:
+
+- If Homer can spend exactly t minutes eating burgers, then output the
+  maximum number of burgers that he can eat.
+
+- Otherwise, output the maximum number of burgers that Homer can eat
+  when maximizing his time eating burgers, a space, and the number of
+  remaining minutes (during which he’ll drink beer).  The time limit
+  for solving the test cases is three seconds. (72)
+#+end_quote
+
+* Optimal Solutions
+We should determine whether Homer can eat burgers for exactly /t/
+minutes. If he can, then we should report the max number of burgers he
+can eat. If he can't, then we should check whether he can eat burgers
+for exactly /t/-1 minutes. If he can, then we report the max number of
+burgers he can eat and the number of minutes remaining (that he spend
+drinking beers). If he can't...
+
+If /t/ = 0, then the correct output is 0.
+
+And what about other values for /t/?
+
+Here is a strategy. Suppose Homer can spend exactly /t/ minutes eating
+burgers.
+
+The last burger he eats must be either a /m/ burger or a /n/
+burger. If the last burger Homer eats in an optimal solution is a /m/
+burgers, then we know that he has /t/ - /m/ minutes left to
+spend. Those /t/ - /m/ minutes must be filled entirely with burgers
+(remember our initial assumption). If we had the optimal number of
+burgers to fill those /t/ - /m/ minutes, then we would be able to give
+the solution: that number + one /m/-minute burger. If we knew that the
+final burger that Homer eats in an optimal solution is a /n/-minute
+burger, then we can say /mutatis mutandis/ the same.
+
+But how can we know whether the last burger Homer eats? We don't need
+to... We can just assume that it was a /m/-minute burger and solve the
+problem that way. Then we assume that it was a /n/-minute burger and
+solve the problem that way. In both case we have subproblems to
+solve. This is a hint that we might want to use recursion.
+
+* Recursion
+We should begin by writing a function that solve the problem for /t/
+minutes:
+#+begin_src C
+int solve_t(int m, int n, int t);
+#+end_src
+
+If Home can spend exactly /t/ minutes eating burgers, then we'll
+return the maximum number of burgers he can eat. If Homer cannot spend
+/t/ minutes eating only burgers, then we'll return -1.
+
+We already know that:
+#+begin_src C
+  if (t == 0)
+    return 0;
+#+end_src
+
+This is the /base/ of our recursion (Cf. chapter 2).
+
+Consider that the final burger can be a /m/-minute burger only if /t/
+>= /m/. (The same for the subproblem in which the minute are /t/ -
+/m/: the final burger can be a /m/-minute burger only if /t/ - /m/ >=
+m.) So we can say:
+#+begin_src C
+  int first;
+  if (t >= m)
+      first = solve_t(m, n, t - m);
+  else
+      first = -1;
+#+end_src
+
+The code, in the case of the /n/ minute burger, will be analogous:
+#+begin_src C
+  int first;
+  if (t >= m)
+      first = solve_t(m, n, t - m);
+  else
+      first = -1;
+#+end_src
+
+Zingaro summarizes the situation thus:
+#+begin_quote
+- The variable first is the solution to the t - m subproblem. If it’s
+  -1, then we can’t fill t - m minutes with burgers. If it’s anything
+  else, then it gives the optimal number of burgers that Homer can eat
+  in exactly t - m minutes.
+
+- The variable second is the solution to the t - n subproblem. If it’s
+  -1, then we can’t fill t - n minutes with burgers. If it’s anything
+  else, then it gives the optimal number of burgers that Homer can eat
+  in exactly t - n minutes.
+#+end_quote
+
+It should be clear that:
+#+begin_src C
+  if (first == -1 && second == -1)
+    return -1;
+#+end_src
+
+If /first/ or /second/ or both are greater than -1:
+#+begin_src C
+return max(first, second) + 1;
+#+end_src
+
+Here is the full function:
+#+begin_src C
+  int max(int v1, int v2) {
+      if (v1 > v2)
+          return v1;
+      else
+          return v2;
+  }
+
+  int solve_t(int m, int n, int t) {
+      int first, second;
+      if (t == 0)
+          return 0;
+      if (t >= m)
+          first = solve_t(m, n, t - m);
+      else
+          first = -1;
+      if (t >= n)
+          second = solve_t(m, n, t - n);
+      else
+          second = -1;
+      if (first == -1 && second == -1)
+          return -1;
+      else
+          return max(first, second) +1 ;
+#+end_src
+
+That magically works...
+
+Remember, though, that we also have to print the minute Home drinks
+beer in cases where he can't spend all the time eating burgers.
+
+#+begin_src C
+  void solve(int m, int n, int t) {
+      int result, i;
+      result = solve_t(m, n, t);
+      if (result >= 0)
+          printf("%d\n", result);
+      else {
+          i = t - 1;
+          result = solve_t(m, n, i);
+          while (result == -1) {
+              i--;
+              result = solve_t(m, n, i);
+          }
+          printf("%d %d\n", result, t - 1);
+      }
+  }
+#+end_src
+
+Finally we write the main function:
+#+begin_src C
+  int main(void) {
+      int m, n, t;
+      while (scanf("%d%d%d", &m, &n, &t) != -1)
+          solve(m, n, t);
+      return 0;
+  }
+#+end_src
