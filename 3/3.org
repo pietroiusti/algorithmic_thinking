@@ -184,3 +184,133 @@ Finally we write the main function:
       return 0;
   }
 #+end_src
+
+* Memoization
+Our previous solution delivers the correct result but it's too
+slow. Why?
+
+The values of /t/ can be up to 9,999, but with the following input the
+we already exceed the time-limit!
+#+begin_src 
+4 2 88
+#+end_src
+
+A way in which we could save some work is avoiding call solve_t with
+value with which we have already called it.
+
+Here is our previous solution with some code that counts the number of
+times solve_t is called:
+#+begin_src C
+  unsigned long long total_calls;
+
+  int solve_t(int m, int n, int t) {
+      int first, second;
+      total_calls++;
+      if (t == 0)
+          return 0;
+      if (t >= m)
+          first = solve_t(m, n, t - m);
+      else
+          first = -1;
+      if (t >= n)
+          second = solve_t(m, n, t - n);
+      else
+          second = -1;
+      if (first == -1 && second == -1)
+          return -1;
+      else
+          return max(first, second) + 1;
+  }
+
+  void solve(int m, int n, int t) {
+      int result, i;
+      total_calls = 0;
+      result = solve_t(m, n, t);
+      if (result >= 0)
+          printf("%d\n", result);
+      else {
+          i = t - 1;
+          result = solve_t(m, n, i);
+          while (result == -1) {
+              i--;
+              result = solve_t(m, n, i);
+          }
+          printf("%d %d\n", result, t - i);
+      }
+      printf("Total calls to solve_t: %llu\n", total_calls);
+  }
+#+end_src
+
+Now we should find a way to remember the answers to a the calls of
+solve_t we make, so that we don't have to call solve_t again when we
+need those answers. This technique is called /memoization/.
+
+Memoization works in two steps:
+1. Declare an array large enough to hold the solutions to all
+   possible subproblems. This array is typicalle called ~memo~. It
+   should be initialized to a valued reserved to mean ``unknown
+   value''.
+2. At the start of the recursive function, add code to check whether
+   the subproblem solution has already been solved. If the answer is
+   already in ~memo~, then we simply return it. Otherwise we have to
+   solve the problem now. Whenever we solve a problem, we store the
+   solution in ~memo~.
+
+Let's implement this.
+
+The right place where to declare and initialize the ~memo~ array is
+~solve~, since that's the function that first gets called for each
+test case. ``Unknown value'' will represented by -2.
+
+#+begin_src C
+  #define SIZE 10000
+
+  void solve(int m, int n, int t) {
+      int result, i;
+      int memo[SIZE];
+      for (i = 0; i <= t; i++)
+          memo[i] = -2;
+      result = solve_t(m, n, t, memo);
+      if (result >= 0)
+          printf("%d\n", result);
+      else {
+          i = t - 1;
+          result = solve_t(m, n, i, memo);
+          while (result == -1) {
+              i--;
+              result = solve(m, n, i, memo);
+          }
+          printf("%d %d\n", result, t - 1);
+      }
+  }
+#+end_src
+
+As you can see, now we are passing ~memo~ to ~solve_t~. Here is the
+update version of ~solve_t~:
+
+#+begin_src C
+  int solve_t(int m, int n, int t, int mem[]) {
+      int first, second;
+      if (memo[t] != -2)
+          return memo[t];
+      if (t == 0) {
+          memo[t] = 0;
+          return memo[t];
+      }
+      if (t >= m)
+          first = solve_t(m, n, t - m, memo);
+      else
+          first = -1;
+      if (t >= n)
+          second = solve_t(m, n, t - n, memo);
+      else
+          second = -1;
+      if (first == -1 && second == -1) {
+          memo[t]  = -1;
+          return memo[t];
+      } else {
+          memo[t] = max(first, second) + 1;
+          return memo[t];
+      }
+  }
+#+end_src
