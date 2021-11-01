@@ -1,4 +1,5 @@
-* The problem
+* Burger Fervor
+** The problem
 Homer has /t/ minutes and some burgers of two types. One type takes
 /m/ minutes to eat and the other type takes /m/ minutes to eat. Homer
 wants to spend all /t/ minutes eating burgers, but sometimes that's
@@ -7,7 +8,7 @@ have to determine the max number of burgers he cant eat. If he can't
 spend /t/ minutes eating burgers, we have to determin the max amount
 of time he can spend eating burgers.
 
-** Input
+*** Input
 #+begin_quote
 We read test cases until there is no more input. Each test case is
 represented by a line of three integers: /m/, the number of minutes it
@@ -17,7 +18,7 @@ that Homer will spend eating burgers and drinking beer. Each /m/, /n/,
 and /t/ value is less than 10,000. (72)
 #+end_quote
 
-** Output
+*** Output
 #+begin_quote
 For each test case:
 
@@ -30,7 +31,7 @@ For each test case:
   for solving the test cases is three seconds. (72)
 #+end_quote
 
-* Optimal Solutions
+** Optimal Solutions
 We should determine whether Homer can eat burgers for exactly /t/
 minutes. If he can, then we should report the max number of burgers he
 can eat. If he can't, then we should check whether he can eat burgers
@@ -61,7 +62,7 @@ problem that way. Then we assume that it was a /n/-minute burger and
 solve the problem that way. In both case we have subproblems to
 solve. This is a hint that we might want to use recursion.
 
-* Recursion
+** Recursion
 We should begin by writing a function that solve the problem for /t/
 minutes:
 #+begin_src C
@@ -185,7 +186,7 @@ Finally we write the main function:
   }
 #+end_src
 
-* Memoization
+** Memoization
 Our previous solution delivers the correct result but it's too
 slow. Why?
 
@@ -315,7 +316,7 @@ update version of ~solve_t~:
   }
 #+end_src
 
-* Dynamic Programming
+** Dynamic Programming
 Suppose we could orchestrate things so that ~memo~ always hold the
 solution we look up. Never having to make a recursive call. Always
 been able to look up the solution right away. /Dynamic Programming/
@@ -355,6 +356,142 @@ function and does everythin inside ~solve~.
               result = dp[i];
           }
           printf("%d %d\n", result, t - i);
+      }
+  }
+#+end_src
+
+** The steps toward an optimal solution
+The first step is to show how to decompose an optimal solution to a
+problem into optimal solutions for smaller subproblems.
+
+The second step is using recursion.
+
+The possible problem with a recursive solution is that the same
+subproblems sometimes are solved over and over (``overlapping
+subproblems''). When there is such a problem, then memoization can be
+used (third step). The subproblems still overlap, but they are solved
+only once.
+
+Sometimes we want eliminate recursion and we can do so by solving
+smaller subproblems before larger subproblems. This is dynamic
+programming (fourth step).
+
+What's better: memoization or dynamic programming? It depends...
+
+
+* Moneygrubbers
+** The problem
+You want to buy at least /k/ apples and do so a cheaply as possible.
+You are given the price of one apple and /m/ pricing schemes. Each
+pricing scheme gives you a number /n/ of apples and a price /p/ for
+it.
+** Input
+#+begin_quote
+We read test cases until there’s no more input. Each test case
+consists of the following lines:
+
+- A line containing the price for buying one apple, followed by the
+  number /m/ of pricing schemes for this test case. /m/ is at most 20.
+
+- /m/ lines, each of which gives a number /n/ and total price /p/ for
+  buying /n/ apples. /n/ is between 1 and 100.
+
+- A line containing integers, where each integer /k/ is between 0 and
+  100 and gives the desired number of apples to buy.
+
+Each price in the input is a floating-point number with exactly two
+decimal digits. (92)
+#+end_quote
+
+For example:
+#+begin_src
+1.75 2
+3 4.00
+2 2.50
+1 4
+#+end_src
+** Output
+#+begin_quote
+For each test case, output the following:
+- A line containing `Case /c/' where /c/ is the number of the test
+  case starting at 1.
+  
+- For each integer /k/, a line containing Buy /k/ for $/d/, where /d/
+  is the cheapest way that we can buy at least /k/ apples. (92)
+#+end_quote
+
+For example:
+#+begin_src
+Case 1:
+Buy 1 for $1.75
+Buy 4 for $5.00
+#+end_src
+
+** Characterising Optimal Solutions
+In Burger Fervor we reasoned that if Homer can spend /t/ minutes
+eating burgers, then his last burger must be either a /m/-minute
+burger or a /n/-minute burger. We can say something analogus here.
+An optimal solutions for buying /k/ apples must end in one of small
+number of ways:
+- using one of the /m/ pricing schemes;
+- buying a single apple.
+In Burger Fervor we had to solve two subproblems. Here we have to
+solve /m/ + 1 subproblems.
+
+An optimal solution for buying /k/ apples ends with us paying /p/
+dollars for /n/ apples. This means that there are also /k/ - /n/
+apples that we need to buy and their cost must be added to /p/. The
+/k/ - /n/ apples moreover must be bought using an optimal solution. If
+the solution to the subproblem weren't optimal, then the solution to
+the problem wouldn't be optimal either!
+
+Notice that --- unlike Burger Fervor --- here we can always find a
+solution for any number /k/, given that we always have the option of
+buying one apple.
+
+** Recursion
+Let's write a helper function:
+#+begin_src C
+  double solve_k(int num[], double price[], int num_schemes, double unit_price, int num_items);
+#+end_src
+~num~: An array of numbers of apples, one element per pricing scheme.
+
+~price~: An array of prices, one element per pricing scheme.
+
+~num_schemes~: The number of pricing schemes.
+
+~unit_price~: The price for one apple.
+
+~num_items~: The number of apples we want to buy.
+
+~solve_k~ return the minimum cost for buying exactly ~num_items~ of
+apples.
+
+#+begin_src C
+  double min(double v1, double v2) {
+      if (v1 <v2)
+          return v1;
+      else
+          return v2;
+  }
+
+  double solve_k(int num[], double price[], int num_schemes,
+                 double unit_price, int num_items) {
+      double best, result;
+      int i;
+      if (num_items == 0)
+          return 0;
+      else {
+          result = solve_k(num, price, num_schemes, unit_price,
+                           num_items -1);
+          best = result + unit_price;
+          for (i = 0; i < num_schemes; i++)
+              if (num_items - num[i] >= 0) {
+                  result = solve_k(num, price, num_schemes, unit_price,
+                                   num_items - num[i]);
+                  best = min(best, result + price[i]);
+              }
+          return best;
       }
   }
 #+end_src
