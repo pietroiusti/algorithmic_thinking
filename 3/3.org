@@ -427,7 +427,7 @@ Buy 1 for $1.75
 Buy 4 for $5.00
 #+end_src
 
-** Characterising Optimal Solutions
+** Characterizing Optimal Solutions
 In Burger Fervor we reasoned that if Homer can spend /t/ minutes
 eating burgers, then his last burger must be either a /m/-minute
 burger or a /n/-minute burger. We can say something analogus here.
@@ -495,3 +495,175 @@ apples.
       }
   }
 #+end_src
+
+~solve_k~ is analogous to ~solve_t~ in Burger Fervor, with one
+difference: the for loop. In Burger Fervor we only had to subproblems
+to try. Here, instead, we have a subproblem for each pricing schemes
+and a subproblem for the purchase of a single apple. So we need to
+loop over the pricing schemes.
+
+This function, however, does not deal with the fact that we might want
+to buy more than /k/ apples sometimes. In some cases, the right thing
+to do is buying more than /k/ apples because it'll be the cheapest
+thing to do in order to buy /at least k/ apples. This problems could
+be solved with a ~solve~ function analogous to the one in Burger
+Fervor:
+#+begin_src C
+  double solve(int num[], double price[], int num_schemes,
+               double unit_price, int num_items) {
+      double best;
+      int i;
+      best = solve_k(num, price, num_schemes,
+                     unit_price, num_items);
+      for (i = num_items + 1; i < ???; i++)
+          best = min(best, solve_k(num, price, num_schemes,
+                                   unit_price, i));
+      return best;
+  }
+#+end_src
+We use a for loop to trying larger and larger number of apples. But
+how do we know when to stop? The number of apples in a given pricing
+schemes is at most 100...
+
+#+begin_src C
+  #define SIZE 200
+
+  double solve(int num[], double price[], int num_schemes,
+               double unit_price, int num_items) {
+      double best;
+      int i;
+      best = solve_k(num, price, num_schemes,
+                     unit_price, num_items);
+      for (i = num_items + 1; i < SIZE; i++)
+          best = min(best, solve_k(num, price, num_schemes,
+                                   unit_price, i));
+      return best;
+  }
+#+end_src
+
+Here is the main function.
+#+begin_src C
+  #define MAX_SCHEMES 20
+
+  int main(void) {
+      int test_case, num_schemes, num_items, more, i;
+      double unit_price, result;
+      int num[MAX_SCHEMES];
+      double price[MAX_SCHEMES];
+      test_case = 0;
+      while (scanf("%lf%d", &unit_price, &num_schemes) != -1) {
+          test_case++;
+          for (i = 0; i < num_schemes; i++)
+              scanf("%d%lf", &num[i], &price[i]);
+          scanf(" ");
+          printf("Case %d:\n", test_case);
+          more = get_number(&num_items);
+          while (more) {
+              result = solve(num, price, num_schemes, unit_price,
+                             num_items);
+              printf("Buy %d for $%.2f\n", num_items, result);
+              more = get_number(&num_items);
+          }
+          result = solve(num, price, num_schemes, unit_price,
+                         num_items);
+          printf("Buy %d for $%.2f\n", num_items, result);
+      }
+      return 0;
+  }
+#+end_src
+
+#+begin_src C
+  int get_number(int *num) {
+      int ch;
+      int ret = 0;
+      ch = getchar();
+      while (ch != ' ' && ch != '\n') {
+          ret = ret * 10 + ch - '0';
+          ch = getchar();
+      }
+      num = ret;
+      return ch == ' ';
+  }
+#+end_src
+
+This works, but it takes ages...
+
+** Memoization
+We can declare memo in main:
+
+#+begin_src C
+  int main(void) {
+      int test_case, num_schemes, num_items, more, i;
+      double unit_price, result;
+      int num[MAX_SCHEMES];
+      double price[MAX_SCHEMES];
+      double memo[SIZE];
+      test_case = 0;
+      while (scanf("%lf%d", &unit_price, &num_schemes) != -1) {
+          test_case++;
+          for (i = 0; i < num_schemes; i++)
+              scanf("%d%lf", &num[i], &price[i]);
+          scanf(" ");
+          printf("Case %d:\n", test_case);
+          for (i = 0; i < SIZE; i++)
+	          memo[i] = -1;
+          more = get_number(&num_items);
+          while (more) {
+              result = solve(num, price, num_schemes, unit_price,
+                             num_items);
+              printf("Buy %d for $%.2f\n", num_items, result);
+              more = get_number(&num_items);
+          }
+          result = solve(num, price, num_schemes, unit_price,
+                         num_items);
+          printf("Buy %d for $%.2f\n", num_items, result);
+      }
+      return 0;
+  }
+#+end_src
+
+We have to change ~solve~ a and ~solve_k~ too.
+
+#+begin_src C
+  double solve(int num[], double price[], int num_schemes,
+               double unit_price, int num_items, double memo[]) {
+      double best;
+      int i;
+      best = solve_k(num, price, num_schemes, unit_price,
+                     num_items, memo);
+      for (i = num_items + 1; i < SIZE; i++)
+          best = min(best, solve_k(num, price, num_schemes,
+                                   unit_price, i, memo));
+      return best;
+  }
+#+end_src
+
+#+begin_src C
+  double solve_k(int num[], double price[], int num_schemes,
+                 double unit_price, int num_items, double memo[]) {
+      double best, result;
+      int i;
+      if (memo[num_items] != -1)
+          return memo[num_items];
+      if (num_items == 0) {
+          memo[num_items] = 0;
+          return memo[num_items];
+      } else {
+          result = solve_k(num, price, num_schemes, unit_price,
+                           num_items - 1, memo);
+          best = result + unit_price;
+          for (i = 0; i < num_schemes; i++)
+              if (num_items - num[i] >= 0) {
+                  result = solve_k(num, price, num_schemes, unit_price,
+                                   num_items - num[i], memo);
+                  best = min(best, result + price[i]);
+              }
+          memo[num_items] = best;
+          return memo[num_items];
+      }
+  }
+#+end_src
+This works and it's not slow...
+
+The book stops here with respect to this problem. However a possible
+exercise is implementing a dynamic programming solution.
