@@ -667,3 +667,117 @@ This works and it's not slow...
 
 The book stops here with respect to this problem. However a possible
 exercise is implementing a dynamic programming solution.
+
+
+* Hockey Rivalry 
+[[./cco18p1_1.png]]
+[[./cco18p1_2.png]]
+[[./cco18p1_3.png]]
+
+* Recursive Solution
+#+begin_src C
+  int max(int v1, int v2) {
+      if (v1 > v2)
+          return v1;
+      else
+          return v2;
+  }
+
+  // i = the number of Geese games that we are considiering in this subproblem
+  // j = the number of Hawks games that we are considiering in this subproblem
+  int solve(char outcome1[], char outcome2[], int goals1[],
+            int goals2[], int i, int j) {
+      int first, second, third, fourth;
+      if (i == 0 || j == 0)
+          return 0;
+      if ((outcome1[i] == 'W' && outcome2[j] == 'L' &&
+           goals1[i] > goals2[j]) ||
+           (outcome1[i] == 'L' && outcome2[j] == 'W' &&
+            goals1[i] < goals2[j]))
+          first = solve(outcome1, outcome2, goals1, goals2, i - 1, j - 1) +
+              goals1[i] + goals2[j];
+      else
+          first = 0;
+      second = solve(outcome1, outcome2, goals1, goals2, i - 1, j - 1);
+      third = solve(outcome1, outcome2, goals1, goals2, i - 1, j);
+      fourth = solve(outcome1, outcome2, goals1, goals2, i, j - 1);
+      return max(first, max(second, max(third, fourth)));
+  }
+ 
+  #define SIZE 1000
+
+  int main(void) {
+      int i, n, result;
+      char outcome1[SIZE + 1], outcome2[SIZE + 1];
+      int goals1[SIZE + 1], goals2[SIZE + 1];
+      scanf("%d ", &n);
+      for (int i = 1; i <= n; i++) {
+          scanf("%c", &outcome1[i]);
+      }
+      for (int i = 1; i <= n; i++) {
+          scanf("%d ", &goals1[i]);
+      }
+      for (int i = 1; i <= n; i++) {
+          scanf("%c", &outcome2[i]);
+      }
+      for (int i = 1; i <= n; i++) {
+          scanf("%d ", &goals2[i]);
+      }
+
+      result = solve(outcome1, outcome2, goals1, goals2, n, n);
+      return 0;
+  }
+#+end_src
+
+* Memoization
+#+begin_src C
+  int main(void) {
+      int i, n, result;
+      char outcome1[SIZE + 1], outcome2[SIZE + 1];
+      int goals1[SIZE + 1], goals2[SIZE + 1];
+      static int memo[SIZE + 1][SIZE + 1]; // the array is huge so we make it static
+      scanf("%d ", &n);
+      for (int i = 1; i <= n; i++) {
+          scanf("%c", &outcome1[i]);
+      }
+      for (int i = 1; i <= n; i++) {
+          scanf("%d ", &goals1[i]);
+      }
+      for (int i = 1; i <= n; i++) {
+          scanf("%c", &outcome2[i]);
+      }
+      for (int i = 1; i <= n; i++) {
+          scanf("%d ", &goals2[i]);
+      }
+      for (i = 0; i <= SIZE; i++)
+          for (j = 0; j <= SIZE; j++)
+              memo[i][j] = -1;
+      result = solve(outcome1, outcome2, goals1, goals2, n, n, memo);
+      printf("%d\n", result);
+      return 0;
+  }
+
+  int solve(char outcome1[], char outcome2[], int goals1[],
+            int goals2[], int i, int j, int memo[SIZE +1][SIZE +1]) {
+      int first, second, third, fourth;
+      if (memo[i][j] != -1)
+          return memo[i][j];
+      if (i == 0 || j == 0) {
+          memo[i][j] = 0;
+          return memo[i][j];
+      }
+      if ((outcome1[i] == 'W' && outcome2[j] == 'L' &&
+           goals1[i] > goals2[j]) ||
+           (outcome1[i] == 'L' && outcome2[j] == 'W' &&
+            goals1[i] < goals2[j]))
+          first = solve(outcome1, outcome2, goals1, goals2, i - 1, j - 1, memo) +
+              goals1[i] + goals2[j];
+      else
+          first = 0;
+      second = solve(outcome1, outcome2, goals1, goals2, i - 1, j - 1, memo);
+      third = solve(outcome1, outcome2, goals1, goals2, i - 1, j, memo);
+      fourth = solve(outcome1, outcome2, goals1, goals2, i, j - 1, memo);
+      memo[i][j] = max(first, max(second, max(third, fourth)));
+      return memo[i][j];
+  }
+#+end_src
