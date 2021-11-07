@@ -781,3 +781,88 @@ exercise is implementing a dynamic programming solution.
       return memo[i][j];
   }
 #+end_src
+
+* Dynamic Programming
+#+begin_src C
+  int solve(char outcome1[], char outcome2[], int goals1[],
+            int goals2[], int n) {
+      int i, j;
+      int first, second, third, fourth;
+      static int dp[SIZE + 1][SIZE + 1];
+      for (i = 0; i <= n; i++)
+          dp[0][i] = 0;
+      for (i = 0; i <= n; i++)
+          dp[i][0] = 0;
+      for (i = 1; i <= n; i++)
+          for (j = 1; j <= n; j++) {
+              if ((outcome[i] == 'W' && outcome2[j] == 'L' &&
+                   goals[i] > goals2[j]) ||
+                  (outcome[i] == 'L' && outcome2[j] == 'W' &&
+                   goals1[i] < goals2[j]))
+                  first = dp[i-1][j-1] + goals1[i] + goals2[j];
+              else		
+                  first = 0;
+              second = dp[i-1][j-1];
+              third = dp[i-1][j];
+              fourth = dp[i][j-1];
+              dp[i][j] = max(first, max(second, max(third, fourth)));
+          }
+      return dp[n][n];
+  }
+
+  int main(void) {
+      int i, n, result;
+      char outcome1[SIZE + 1], outcome2[SIZE + 1];
+      int goals1[SIZE + 1], goals2[SIZE + 1];
+      static int memo[SIZE + 1][SIZE + 1]; // the array is huge so we make it static
+      scanf("%d ", &n);
+      for (int i = 1; i <= n; i++) {
+          scanf("%c", &outcome1[i]);
+      }
+      for (int i = 1; i <= n; i++) {
+          scanf("%d ", &goals1[i]);
+      }
+      for (int i = 1; i <= n; i++) {
+          scanf("%c", &outcome2[i]);
+      }
+      for (int i = 1; i <= n; i++) {
+          scanf("%d ", &goals2[i]);
+      }
+      for (i = 0; i <= SIZE; i++)
+          for (j = 0; j <= SIZE; j++)
+              memo[i][j] = -1;
+      result = solve(outcome1, outcome2, goals1, goals2, n);
+      printf("%d\n", result);
+      return 0;
+  }
+#+end_src
+** Using two one-dimensional arrays instead of one two-dimensional one
+#+begin_src C
+  int solve(char outcome1[], char outcome2[], int goals1[],
+            int goals2[], int n) {
+      int i, j, k;
+      int first, second, third, fourth;
+      static int previous[SIZE +1], current[SIZE +1];
+      for (i = 0; i <= n; i++)
+          previous[i] = 0;
+      for (i = 1; i <= n; i++) {
+          for (j = 1; j <= n; j++) {
+              if ((outcome[i] == 'W' && outcome2[j] == 'L' &&
+                   goals1[i] > goals2[j]) ||
+                  (outcome[i] == 'L' && outcome2[j] == 'W' &&
+                   goals1[i] < goals2[j]))
+                  first = previous[j-1] + goals1[i] + goals2[j];
+              else
+                  first = 0;
+              second = previous[j-1];
+              third = previous[j];
+              fourth = previous[j-1];
+              current[j] = max(first, max(second, max(third, fourth)));		 
+          }
+          for (k = 0; k < SIZE; k++)
+              previous[k] = current[k];
+      }
+      return current[n];
+  }
+#+end_src
+
