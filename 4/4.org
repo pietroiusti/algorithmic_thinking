@@ -207,4 +207,96 @@ Remove the following bit from ~find_distance~!
   if (from_row == dest_row && from_col == dest_col)
       return min_moves[dest_row][dest_col];
 #+end_src
+* Rope Climb
 
+[[./rope_climb.png]]
+
+[[./rope_climb_input_output_sample.png]]
+
+
+We closely follow what we did for Knight Chase. Here, at it was there,
+we need to minimize the number of moves.
+
+The number of possible moves, here, depends on the Bob's current position.
+
+Any move that would cause Bob to land on itching powder will be
+disallowed in our BFS code.
+
+Given that /j/, the distance that Bob jumps up, is at most /h/, the
+minimum target height, we shouldn't let Bob get to height 2 x /h/ or
+higher.
+
+** Implementing BFS
+We'll keep the name `board'...
+#+begin_src C
+  #define SIZE 1000000
+
+typedef int board[SIZE * 2];
+typedef int positions[SIZE * 2];
+#+end_src
+
+We will make one call of BFS in order to calculate the minimum number
+of moves to get from height zero to each valid position.
+
+#+begin_src C
+  void find_distance(int target_height, int jump_distance,
+                     int itching[], board min_moves) {
+      static positions cur_positions, new_positions;
+      int num_cur_positions, num_new_positions;
+      int i, j, from_height;
+      for (i = 0; i < target_height * 2; i++)
+          min_moves[i] = -1;
+      min_moves[0] = 0; // meaning: you can reach position 0 with 0 moves
+      cur_positions[0] = 0; // positions found in this ``round''
+      num_cur_positions = 1; // num of positions found in this ``round''
+
+      while (num_cur_positions > 0) { // while we discover new positions
+          num_new_positions = 0;
+          for (i = 0; i < num_cur_positions; i++) {
+              from_height = cur_positions[i];
+
+              //Bob has exactly one jump distance, so there's only one
+              //jump move to consider
+              add_position(from_height, from_height + jump_distance,
+                           target_height * 2 - 1,
+                           new_positions, &num_new_positions,
+                           itching, min_moves);
+              // To handle the falling down, we use a loop.
+              for (j = 0; j < from_height; j++)
+                  add_position(from_height, j,
+                               target_height * 2 - 1,
+                               new_positions, &num_new_positions,
+                               itching, min_moves);
+          }
+
+          num_cur_positions = num_new_positions;
+          for (i = 0; i < num_cur_positions; i++)
+              cur_positions[i] = new_positions[i];
+      }
+  }
+#+end_src
+
+~target_heigth~: The minimum height that Bob must reach (/h/).
+
+~jump_distance~: The distance that Bob can jump up (/j/).
+
+~itching~: the parameter that indicates whether itching is present. If
+itching[i] is 0, then there is no itching at height i; otherwise,
+there is.
+
+~min_moves~: the board in which we store the minimum number of moves
+to get to each position.
+
+Helper function:
+#+begin_src C
+  void add_position(int from_height, int to_height, int max_height,
+                    positions new_positions, int *num_new_positions,
+                    int itching[], board min_moves) {
+      if (to_height <= max_height && itching[to_height] == 0 &&
+          min_moves[to_height] == -1) {
+          min_moves[to_height] = 1 + min_moves[from_height];
+          new_positions[*num_new_positions] = to_height;
+          (*num_new_positions)++;
+      }
+  }
+#+end_src
