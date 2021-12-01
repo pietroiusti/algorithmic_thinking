@@ -1,0 +1,156 @@
+* Mice Maze
+** The Problem
+[[./Mice_maze.png]]
+
+[[./mice_maze_sample.png]]
+
+** Moving On from BFS
+
+BFS helped us to find shortest paths. However, now, the focus now is
+not on edge counts, but on edge weights. BFS cannot help us here: we
+are not interest in getting to the exit cell traversing the lowest
+number of edges; we want to get to the exict cell spending the least
+number of time units.
+
+Consider figure 5-1...
+
+** Shortest Paths in Weighted Graphs
+The algorith we'll use identifies the shortest path for nodes further
+and further away, in terms of total edge weight, from the starting
+node. (A BFS, instead, does the same, but in terms of edge count.)
+
+In this kind of problem, unlike the BFS cases, the shortest paths that
+we discover more recently are not necessarily those that will help us
+find the shortest path for a new node.
+
+For each node we mantain two pieces of information:
+- done :: A boolean. False means that we have't found the shortest
+  path for this node. True otherwise.
+- min_time :: The shortest path distance from the starting point, in
+  terms of total time, using a path whose other nodes are all
+  done. min_time can decrease when more nodes become done.
+
+The shortest path from node 1 to node 1 is 0.
+
+|------+-------+----------|
+| node | done  | min_time |
+|------+-------+----------|
+|    1 | false |        0 |
+|    2 | false |          |
+|    3 | false |          |
+|    4 | false |          |
+|    5 | false |          |
+
+We set node 1 to done, and then we set the min_time for each other
+node based on the edge weights from node 1:
+
+|------+-------+----------|
+| node | done  | min_time |
+|------+-------+----------|
+|    1 | true  |        0 |
+|    2 | false |       12 |
+|    3 | false |        6 |
+|    4 | false |       45 |
+|    5 | false |        7 |
+
+Given that... we know that 3 is done. But, if so, we can get to node 2
+in 8 time units. Therefore:
+
+|------+-------+----------|
+| node | done  | min_time |
+|------+-------+----------|
+|    1 | true  |        0 |
+|    2 | false |        8 |
+|    3 | true  |        6 |
+|    4 | false |       45 |
+|    5 | false |        7 |
+
+But now... we can set 5 as done.
+
+|------+-------+----------|
+| node | done  | min_time |
+|------+-------+----------|
+|    1 | done  |        0 |
+|    2 | false |        8 |
+|    3 | true  |        6 |
+|    4 | false |       45 |
+|    5 | true  |        7 |
+
+etc... Finally we get:
+
+|------+------+----------|
+| node | done | min_time |
+|------+------+----------|
+|    1 | done |        0 |
+|    2 | true |        8 |
+|    3 | true |        6 |
+|    4 | true |       17 |
+|    5 | true |        7 |
+
+We have used the so-called Dijkstra's algorithm, after Edsger
+W. Dijkstra. This is exactly what we need to solve Mice Maze. We shall
+read the input to build the graph and then implement the Dijkstra's
+algorithm.
+
+** Building the Graph
+We'll use an adjacency list for representing the graph. Each edge
+struct has a cell to which it points to and the length of time
+required to walk the edge, and a next pointer.
+
+#+begin_src C
+  #define MAX_CELLS 100
+
+  typedef struct edge {
+      int to_cell, length;
+      struct edge *next;
+  } edge;
+#+end_src
+
+The main function read the graphs
+
+#+begin_src C
+  int main(void) {
+      static edge *adj_list[MAX_CELLS + 1];
+      int num_cases, case_num, i;
+      int num_cells, exit_cell, time_limit, num_edges;
+      int from_cell, to_cell, length;
+      int total, min_time;
+      edge *e;
+
+      scanf("%d", &num_cases);
+      for (case_num = 1; case_num <= num_cases; case_num++) {
+          scanf("%d%d%d", &num_cells, &exit_cell, &time_limit);
+          scanf("%d", &num_edges);
+          for (i = 1; i <= num_cells; i++)
+              adj_list[i] = NULL;
+          for (i = 0; i < num_edges; i++) {
+              scanf("%d%d%d", &from_cell, &to_cell, &length);
+              e = malloc(sizeof(edge));
+              if (e == NULL) {
+                  fprintf(stderr, "malloc error\n");
+                  exit(1);
+              }
+              e->to_cell = to_cell;
+              e->length = length;
+              e->nexth = adj_list[from_cell];
+              adj_list[from_cell] = e; // The graph is indirected, so we
+                                       // don't add and edge at
+                                       // adj_list[to_cell] to from_cell
+          }
+
+          total = 0;
+          for (i = 1; i <= num_cells; i++) {
+              min_time = find_time(adj_list, num_cells, i, exit_cell); // Dijkstra's
+                                                                       // algorithm
+                                                                       // implementation
+              if (min_time >= 0 && min_time <= time_limit) {
+                  total++;
+              }
+          }
+          printf("%d\n", total);
+          if (case_num < num_cases)
+              pritnf("\n");
+      }
+      return 0;
+  }
+#+end_src
