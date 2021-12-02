@@ -106,7 +106,7 @@ required to walk the edge, and a next pointer.
   } edge;
 #+end_src
 
-The main function read the graphs
+The main function read the graphs.
 
 #+begin_src C
   int main(void) {
@@ -127,7 +127,7 @@ The main function read the graphs
               scanf("%d%d%d", &from_cell, &to_cell, &length);
               e = malloc(sizeof(edge));
               if (e == NULL) {
-                  fprintf(stderr, "malloc error\n");
+                  fprintf(stderr, "mzzalloc error\n");
                   exit(1);
               }
               e->to_cell = to_cell;
@@ -152,5 +152,62 @@ The main function read the graphs
               pritnf("\n");
       }
       return 0;
+  }
+#+end_src
+
+** Implementing Dijkstra's Algorithm
+The first implementation of the algorithm we will write is gonna
+calculate the shortest path time from the starting cell to all other
+cells, even if we only need the shortest path time to the exit
+cell. Way to optimize this algorithm will be shown later.
+
+#+begin_src C
+  int find_time(edge *adj_list[], int num_cells,
+                int from_cell, int exit_cell) {
+      static int done[MAX_CELLS + 1];//store booleans that mean done (1)
+                                     //or undone (0)
+      static int min_times[MAX_CELLS + 1]; //store shortest paths
+                                           //distances from the starting
+                                           //cell to each cell
+      int i, j, found;
+      // `found` tracks whether a cell can be a new cell can be
+      // discovered by Dijkstra's algorithm
+      int min_time, min_time_index, old_time;
+      edge *e;
+
+      for (i = 1; i <= num_cells; i++) {
+          done[i] = 0;
+          min_times[i] = -1;
+      }
+      min_times[from_cell] = 0;
+
+      for (i = 0; i < num_cells; i++) {
+          min_time = -1;
+          found = 0;
+          // Inner loop that leaves `min_time_index` with the index of
+          // the cell whose shortest path has been found `min_time` with
+          // the shortest path time itself.
+          for (j = 1; j <= num_cells; j++) {
+              if (!done[j] && min_times[j] >= 0) {
+                  if (min_time == -1 || min_times[j] < min_time) {
+                      min_time = min_times[j];
+                      min_time_index = j;
+                      found = 1;
+                  }		    
+              }
+          }
+          if (!found)
+              break;
+          done[min_time_index] = 1;
+
+          e = adj_list[min_time_index];
+          while (e) {
+              old_time = min_times[e->to_cell];
+              if (old_time == -1 || old_time > min_time + e->length)
+                  min_times[e->to_cell] = min_time + e->length;
+              e = e->next;
+          }
+      }
+      return min_times[exit_cell];
   }
 #+end_src

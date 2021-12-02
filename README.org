@@ -1,0 +1,5 @@
+Code from Daniel Zingaro's /Algorithmic Thinking/ with some comments,
+paraphrases and additions.
+
+The source code in the book has also been made available by the author
+at https://www.danielzingaro.com/alg//
