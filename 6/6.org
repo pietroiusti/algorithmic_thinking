@@ -168,3 +168,171 @@ to find /optimality/!
       return 0;
   }
 #+end_src
+
+* Living Quality
+In order to check feasibility, in Feeding Ants, we have used a
+recursive traversal of a tree and, in River Jump, we have used a
+greedy algorithm. Now, to efficiently check feasibility we will use
+dynamic programming.
+
+This is DMOJ ioi10p3.
+
+** Sorting Every Rectangle
+#+begin_src C
+#define MAX_ROWS 3001
+#define MAX_COLS 3001
+
+typedef int board[MAX_ROWS][MAX_COLS];
+#+end_src
+
+How to determine the median quality rank of a rectangle, if we are given
+the top-left and the bottom-right coordinates?
+
+We can: sort the quality ranks present in the rectangle from lowest to
+highest, and then pick out the one in the middle.
+
+Sorting gives us an algorith with O(n log n). (Better algorithm
+exist. In particular, there a O(n) algorithm exists for finding the
+median...)
+
+#+begin_src C
+  int median(int top_row, int left_col, int bottom_row, int right_col,
+      board q) {
+      static int cur_rectangle[MAX_ROWS * MAX_COLS];
+      int i, j, num_cur_rectangle;
+      num_cur_rectangle = 0;
+      for (i = top_row; i <= bottom_row; i++)
+          for (j = left_col; j <= right_col; j++) {
+              cur_rectangle[num_cur_rectangle] = q[i][j];
+              num_cur_rectangle++;
+          }
+      qsort(cur_rectangle, num_cur_rectangle, sizeof(int), compare);
+      return cur_rectangle[num_cur_rectangle / 2];
+  }
+#+end_src
+
+Now that we are able to calculate the median of a rectangle we can loop
+through each candidate rectangle and return the smallest median.
+
+#+begin_src C
+  int rectangle (int r, int c, int h, int w, board q) {
+      int top_row, left_col, bottom_row, right_col;
+      int best = r * c + 1;
+      int result;
+      for (top_row = 0; top_row < r - h + 1; top_row++)
+          for (left_col = 0; left_col < c - w + 1; left_col++) {
+              bottom_row = top_row + h - 1;
+              right_col = left_col + w - 1;
+              result = median(top_row, left_col, bottom_row, right_col, q);
+              if (result < best)
+                  best = result;
+          }
+      return best;
+  }
+#+end_src
+
+This works, but... it's too slow. There are at the least two things we
+can improve. At the moment, we sort each rectangle. That can be
+disposed by binary search. Moreover, we create the ~cur_rectangle~
+array from scratch for each rectangle. That can be disposed by
+dynamic-programming!
+
+** Binary Search
+Low and everything smaller than ~low~ are infeasible; ~high~ and
+everything larger than ~high~ are feasible.
+
+#+begin_src C
+  int rectangle(int r, int c, int h, int w, board q) {
+      int low, high, mid;
+      low = 0;
+      high = r * c + 1;
+      while (high - low > 1) {
+          mid = (low + high) / 2;
+          if (can_make_quality(mid, r, c, h, w, q))
+              high = mid;
+          else
+              low = mid;
+      }
+      return high;
+  }
+#+end_src
+
+Now we need an implementation of ~can_make_quality~ to test feasibility.
+
+** Testing Feasibility
+There is no need to sort... For each rectangle, we can replace each
+value of it by -1 if it's less than or equal to ~quality~ and by 1 if
+it's greater than it. We add all up, and if we get 0 or less we know
+that the rectangle has a median rank or ~quality~ or less.
+#+begin_src C
+  int can_make_quality(int quality, int r, int c, int h, int w, board q) {
+      static int zero_one[MAX_ROWS][MAX_COLS];
+      int i, j;
+      int top_row, left_col, bottom_row, right_col;
+      int total;
+
+      for (i = 0; i < r; i++)
+          for(j = 0; j < c; j++)
+              if (q[i][j] <= quality)
+                  q[i][j] = -1;
+              else
+                  q[i][j] = 1;
+    
+      for (top_row = 0; top_row < r - h + 1; top_row++)
+          for (left_col = 0; left_col < c - w + 1; left_col++) {
+              bottom_row = top_row + h - 1;
+              right_col = left_col + w -1;
+              total = 0;
+              for (i = top_row; i <= bottom_row; i++)
+                  for (j = left_col; j <= right_col; j++)
+                      total = total + zero_one[i][j];
+              if (total <= 0)
+                  return 1;
+          }
+      return 0;
+  }
+#+end_src
+
+That works; and we are not sorting anymore. But there are a bunch of
+nested loops (four)!
+
+** Testing Feasibility More Quickly
+#+begin_src C
+  int can_make_quality(int quality, int r, int c, int h, int w, board q) {
+      static int zero_one[MAX_ROWS][MAX_COLS];
+      static int sum[MAX_ROWS + 1][MAX_COLS + 1];
+      int i, j;
+      int top_row, left_col, bottom_row, right_col;
+      int total;
+
+    
+      for (i = 0; i < r; i++)
+          for(j = 0; j < c; j++)
+              if (q[i][j] <= quality)
+                  q[i][j] = -1;
+              else
+                  q[i][j] = 1;
+
+      for (i = 0; i <= c; i++)
+          sum[0][i] = 0;
+      for (i = 0; i <= r; i++)
+          sum[i][0] = 0;
+      for (i = 1;i <= r; i++)
+          for (j = 1; j <= c; j++)
+              sum[i][j] = zero_one[i-1][j-1] + sum[i-1][j] +
+                  sum[i][j-1] - sum[i-1][j-1];
+
+      for (top_row = 1; top_row <= r - h + 1; top_row++)
+          for (left_col = 1; left_col <= c - w + 1; left_col++) {
+              bottom_row = top_row + h - 1;
+              right_col = left_col + w - 1;
+              total = sum[bottom_row][right_col] - sum[top_row-1][right_col] -
+                  sum[bottom_row][left_col-1] + sum[top_row-1][left_col-1];
+              if (total <= 0)
+                  return 1;
+          }
+      return 0;
+  }
+#+end_src
+
+This is an O(m^2 log m) alrorigthm. Enough to pass all the test cases.
