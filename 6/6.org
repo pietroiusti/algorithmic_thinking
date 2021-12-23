@@ -336,3 +336,118 @@ nested loops (four)!
 #+end_src
 
 This is an O(m^2 log m) alrorigthm. Enough to pass all the test cases.
+
+* Cave Doors
+
+DMOJ problem ioi13p4.
+
+This is the only case in which we won't use binary search to find an
+optimal solution...
+
+We have to write this function:
+#+begin_src C
+  void explore(int n)
+#+end_src
+Where ~n~ is the number of doors (and switches).
+
+~explore~ will have to call two function provided by the judge
+
+#+begin_src C
+int tryCombination(int switch_positions[])
+#+end_src
+
+#+begin_src C
+void answer(int switch_positions[], int door_for_switch[])
+#+end_src
+
+** Solving a SubTask
+We are going first to solve a subtask. In the first substak each
+switch ~i~ is a associated with door number ~i~. We only need to
+discover the correct position, up (0) or down (1), of each switch.
+This is the code for that subtask:
+#+begin_src C
+  void exploreCave(int n) {
+      int switch_positions[n], door_for_switch[n];
+      int i, result;
+      for (i = 0; i < n; i++) {
+          switch_positions[i] = 0;
+          door_for_switch[i] = i;
+      }
+    
+      for (i = 0; i < n; i++) {
+          result = tryCombination(switch_positions);
+          if (result == i) // door i is closed
+              switch_positions[i] = 1;
+      }
+      answer(switch_positions, door_for_switch);
+  }
+#+end_src
+
+** Using a Linear Search
+The solution above of subtask 1 focuses on door 0, opens it or closes
+it if necessary, and never messes with its switch again.
+
+Now, though, we don't know which switch controls the current
+door. What can we do? 
+
+We can close door foo and then search through the switches its
+associated switch!
+
+#+begin_src C
+  void exploreCave(int n) {
+      int switch_positions[n], door_for_switch[n];
+      int i;
+      for (i = 0; i < n; i++)
+          door_for_switch[i] = -1; //indicate that the door for each
+                                   //switch is unkown
+
+      for (i = 0; i < n; i++)
+          set_a_switch(i, switch_positions, door_for_switch, n);
+
+      answer(switch_positions, door_for_switch);
+  }
+#+end_src
+
+We are using the helper function ~set_a_switch~ to search through the
+switches to determine wich is associated with a certain door:
+#+begin_src C
+    void set_a_switch(int door, int switch_positions[],
+                    int door_for_switch[], int n) {
+      int i, result;
+      int found = 0;
+
+      // loop through the switches
+      for (i = 0; i < n; i++)
+          // set to 0 those switches that are not associated with any
+          // door
+          if (door_for_switch[i] == -1)
+              switch_positions[i] = 0;
+    
+      result = tryCombination(switch_positions);
+      if (result != door) { // if door is open
+          // let's close it
+          for (i = 0; i < n; i++)
+              if (door_for_switch[i] = -1)
+                  switch_positions[i] = 1;
+      }			      
+
+      // now that the door is closed, let's check try each switch to
+      // open it
+      i = 0;
+      while (!found) {
+          if (door_for_switch[i] == -1)
+              switch_positions[i] = 1 - switch_positions[i];
+          result = tryCombination(switch_positions);
+          if (result != door)
+              found = 1;
+          else
+              i++;
+      }
+      door_for_switch[i] = door;
+    }
+#+end_src
+
+With ~set_a_switch~ we are performing a linear search. This means that
+a single door could take up to 5000 calls of ~tryCombination~. But we
+are allowed to call ~tryCombination~ up to 70000 times and we could
+have 5000 doors!
