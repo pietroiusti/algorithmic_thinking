@@ -1,0 +1,190 @@
+* Unique Snowflakes
+** The Problem
+[[/home/gp/Nextcloud/programming/algorithmic_thinking/1/snowflakes.png]]
+** First (Too Slow) Solution
+#+begin_src C
+  #include <stdio.h>
+  #include <stdlib.h>
+  #include <string.h>
+
+  int identical_right(int snow1[], int snow2[], int start) {
+      int offset;
+      for (offset =0; offset < 6; offset++) {
+          if (snow1[offset] != snow2[(start + offset) % 6])
+              return 0;
+      }
+      return 1;
+  }
+
+  int identical_left(int snow1[], int snow2[], int start) {
+      int offset, snow2_index;
+      for (offset =0; offset < 6; offset++) {
+          snow2_index = start - offset;
+          if (snow2_index < 0)
+              snow2_index = snow2_index + 6;
+          if (snow1[offset] != snow2[snow2_index])
+              return 0;
+      }
+      return 1;
+  }
+
+  int are_identical(int snow1[], int snow2[]) {
+      int start;
+      for (start = 0; start < 6; start++) {
+          if (identical_right(snow1, snow2, start))
+              return 1;
+          if (identical_left(snow1, snow2, start))
+              return 1;
+      }
+      return 0;
+  }
+
+  void identify_identical(int snowflakes[][6], int n) {
+      int i, j;
+      for (i = 0; i < n; i++) {
+          for (j = i+1; j < n; j++) {
+              if (are_identical(snowflakes[i], snowflakes[j])) {
+                  printf("Twin snowflakes found.\n");
+                  return;
+              }
+          }
+      }
+      printf("No two snowflakes are alike.\n");
+  }
+
+  int main(void) {
+      static int snowflakes[SIZE][6]; // the `static` is used to we
+                                      // avoid to store the array it in
+                                      // the ``call stack''
+      int n, i, j;
+      scanf("%d", &n);
+      for (i = 0; i < n; i++)
+          for (j = 0; j < n; j++)
+              scanf("%d", &snowflakes[i][j]);
+      identify_identical(snowflakes, n);
+      return 0;
+  }
+#+end_src
+
+First, we have implement ~are_identical~, that checks whether two
+snowflakes are the same snowflake.
+
+Second, we have implemented ~identify_identical~, that takes a
+2-dimension array representing the snowflakes, and checks whether they
+are all different.
+
+Finally, in the main, we scanf the input into a 2-dimension array and
+we pass it to ~identify_identical~.
+
+This solution is too slow. Why? The problem is the two nested loops
+comparing the snowflakes! This double loops makes the algorithm into a
+*O(n^2)* algorithm (Cf. p. 9-10), or a *quadratic-time* algorithm. Not
+the best one.
+
+Sorting the snowflakes doesn't seem to help here...
+** Working Solution
+The solution presented by the author uses a *hash table*. How does it
+work?
+
+The basic idea is finding a way to group the snowflakes into
+``buckets'' and have snowflakes that are obviously not the same into
+different buckets. If this is possible, then, when we have to check
+whether a snowflake has a twin or not, we can just compare it to those
+snowflakes that are in its same bucket, instead of comparing with all
+the other snowflakes!
+
+The ``buckets'' are going to be linked-lists in an array.
+
+How to find a way to see whether two snowflakes are obviously not
+twins? A simple way is performing the sum of their arms. This is not
+perfect (different snowflakes will end up in the same bucket) but it
+will be enough. So we will have a function that takes a snowflakes and
+outputs a number (the ``code''). That code will give the bucket of the
+snowflakes, that is, the index in the arrya of buckets (linked-lists).
+
+Moreover, for memory reasons, we will use an array of 100,000
+elements.  This means that the function that gives the code for a
+snowflakes will have to return a code between 0 and 100,000. But the
+sum of the arms of a snowflake might be greater than 100,000! For this
+we will use a little trick: we will use the % operator (See
+p. 13). This means, again, that some different snowflakes will be in
+the same bucket, but it should be an overall beneficial price to pay.
+
+#+begin_src C
+  #define SIZE 100000
+
+  int code (int snowflake[]) {
+      return (snowflake[0] + snowflake[1] + snowflake[2]
+              + snowflake[3] + snowflake[4] + snowflake[5]) % SIZE;
+  }
+
+  typedef struct snowflake_node {
+      int snowflake[6];
+      struct snowflake_node *next;
+  } snowflake_node;
+
+  void identify_identical(snowflake_node *snowflakes[]) {
+      snowflake_node *node1, *node2;
+      int i;
+      for (i = 0; i < SIZE; i++) {
+          node1 = snowflakes[i];
+          while (node1 != NULL) {
+              node2 = node1->next;
+              while (node2 != NULL) {
+                  if (are_identical(node1->snowflake, node2->snowflake)) {
+                      printf("Twin snowflakes found.\n");
+                      return;
+                  }
+                  node2 = node2->next;
+              }
+              node1 = node1->next;
+          }
+      }
+      printf("No two snowflakes are alike.\n");
+  }
+
+  int main(void) {
+      static snowflake_node *snowflakes[SIZE] = {NULL};
+      snowflake_node *snow;
+      int n, i, j, snowflake_code;
+      scanf("%d", &n);
+      for (i = 0; i < n; i++) {
+          snow = malloc(sizeof(snowflake_node));
+          if (snow == NULL) {
+              fprintf(stderr, "malloc error\n");
+              exit(1);
+          }
+          for (j = 0; j < 6; j++)
+              scanf("%d", &snow->snowflake[j]);
+          snowflake_code = code(snow->snowflake);
+          snow->next = snowflakes[snowflake_code];
+          snowflakes[snowflake_code] = snow;
+      }
+      identify_identical(snowflakes);
+      // we should be deallocating, but we are not...
+      return 0;
+  }
+#+end_src
+
+This solution is way faster than the previous one. We expect has
+tables to give us a *linear-time* solution, or *O(n)* solution.
+
+* Hash Tables
+A hash table consists of /buckets/ and a /hash function/.
+
+Here are three design decisions when designing a hash table:
+- Size of the array. There is a memory-time tradeoff. The bigger the
+  array the more the memory used when initializing. The smaller the
+  array the more the collisions.
+- The hash function. A good hash function will spread data
+  around. (Malicious input --- input studied so that data will collide
+  --- is always a possibility though.)
+- What to use as buckets. Using linked list is known as a /chaining/
+  scheme. /Open-addressing/ is another possibility.
+
+Why using a hash table? Assuming there are is not pathological data,
+given that it is expected that each linked list will have only a few
+elements, and therefore that making all comparison within a bucke will
+take only a small, constanst, number of steps, hash tables are
+expected to be a /linear-time/ solution (O(n) solution).
+
