@@ -190,7 +190,11 @@ expected to be a /linear-time/ solution (O(n) solution).
 
 * Compound Words
 ** The Problem
-UVa problem 10391
+UVa problem 10391.
+
+We are given a bunch of strings (words) and we have to print those
+strings (words) that are ``compounds words'', that is, the results of
+concatenanting two of any of the strings that we are given.
 *** Input
 One string (word) per line, in alphabetical order. At most 120,000
 strings.
@@ -293,4 +297,20 @@ Time limit: three seconds.
   }
 #+end_src
 
+We read all strings using ~read_line~, and we put each of them in the
+~words~ array in the order we got them.
+
+We also put each of them in the ~hash_table~ array (at the right, by
+calculating the respective code.)
+
+Once we have populated the hash table, we can call
+~identify_compound_words~.
+
+Why using also a ~words~ array and not only a ~hash_table~ array? We
+have to print the compound words in alphabetical order. The input is
+already in alphabetical order. If we didn't use the ~word~ array, and
+only populated the hash table, we would lose the alphabetical order
+that we already have, which means that we would have sort the words
+again at some point. By storing the input into the ~words~ array we
+get sorting for free.
 
