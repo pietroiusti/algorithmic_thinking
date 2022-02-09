@@ -314,3 +314,12 @@ that we already have, which means that we would have sort the words
 again at some point. By storing the input into the ~words~ array we
 get sorting for free.
 
+(A couple of ideas that could improve /expected (average) performace/:
+(i) when splitting the word and checking whether both splits are in
+the hash table, check first the smaller word, because it is more
+likely to be present [and if it's not, we pass to the next word
+without checking the other split]; (ii) instead of splitting starting
+from the beginning of the word, start from the middle and then try
+first move on the left, then on the right, then left, then right, and
+so on.)
+
