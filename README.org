@@ -9,7 +9,7 @@ at https://www.danielzingaro.com/alg//
 * 1
 ** Unique Snowflakes
 *** The Problem
-[[/home/gp/Nextcloud/programming/algorithmic_thinking/1/snowflakes.png]]
+[[./snowflakes.png]]
 *** First (Too Slow) Solution
 #+begin_src C
   #include <stdio.h>
@@ -2310,7 +2310,7 @@ Helper functions:
 * 5
 ** Mice Maze
 *** The Problem
-[[./Mice_maze.png]]
+[[./mice_maze.png]]
 
 [[./mice_maze_sample.png]]
 
