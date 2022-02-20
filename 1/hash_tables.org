@@ -323,3 +323,5 @@ from the beginning of the word, start from the middle and then try
 first move on the left, then on the right, then left, then right, and
 so on.)
 
+* Spelling Check: Deleting a Letter
+

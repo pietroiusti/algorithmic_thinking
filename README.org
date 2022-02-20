@@ -1,5 +1,3296 @@
-Code from Daniel Zingaro's /Algorithmic Thinking/ with some comments,
+#+title: Algorithmic Thinking
+
+Code from Daniel Zingaro's /Algorithmic Thinking/ with comments,
 paraphrases and additions.
 
 The source code in the book has also been made available by the author
 at https://www.danielzingaro.com/alg//
+
+* 1
+** Unique Snowflakes
+*** The Problem
+[[/home/gp/Nextcloud/programming/algorithmic_thinking/1/snowflakes.png]]
+*** First (Too Slow) Solution
+#+begin_src C
+  #include <stdio.h>
+  #include <stdlib.h>
+  #include <string.h>
+
+  int identical_right(int snow1[], int snow2[], int start) {
+      int offset;
+      for (offset =0; offset < 6; offset++) {
+          if (snow1[offset] != snow2[(start + offset) % 6])
+              return 0;
+      }
+      return 1;
+  }
+
+  int identical_left(int snow1[], int snow2[], int start) {
+      int offset, snow2_index;
+      for (offset =0; offset < 6; offset++) {
+          snow2_index = start - offset;
+          if (snow2_index < 0)
+              snow2_index = snow2_index + 6;
+          if (snow1[offset] != snow2[snow2_index])
+              return 0;
+      }
+      return 1;
+  }
+
+  int are_identical(int snow1[], int snow2[]) {
+      int start;
+      for (start = 0; start < 6; start++) {
+          if (identical_right(snow1, snow2, start))
+              return 1;
+          if (identical_left(snow1, snow2, start))
+              return 1;
+      }
+      return 0;
+  }
+
+  void identify_identical(int snowflakes[][6], int n) {
+      int i, j;
+      for (i = 0; i < n; i++) {
+          for (j = i+1; j < n; j++) {
+              if (are_identical(snowflakes[i], snowflakes[j])) {
+                  printf("Twin snowflakes found.\n");
+                  return;
+              }
+          }
+      }
+      printf("No two snowflakes are alike.\n");
+  }
+
+  int main(void) {
+      static int snowflakes[SIZE][6]; // the `static` is used to we
+                                      // avoid to store the array it in
+                                      // the ``call stack''
+      int n, i, j;
+      scanf("%d", &n);
+      for (i = 0; i < n; i++)
+          for (j = 0; j < n; j++)
+              scanf("%d", &snowflakes[i][j]);
+      identify_identical(snowflakes, n);
+      return 0;
+  }
+#+end_src
+
+First, we have implement ~are_identical~, that checks whether two
+snowflakes are the same snowflake.
+
+Second, we have implemented ~identify_identical~, that takes a
+2-dimension array representing the snowflakes, and checks whether they
+are all different.
+
+Finally, in the main, we scanf the input into a 2-dimension array and
+we pass it to ~identify_identical~.
+
+This solution is too slow. Why? The problem is the two nested loops
+comparing the snowflakes! This double loops makes the algorithm into a
+*O(n^2)* algorithm (Cf. p. 9-10), or a *quadratic-time* algorithm. Not
+the best one.
+
+Sorting the snowflakes doesn't seem to help here...
+*** Working Solution
+The solution presented by the author uses a *hash table*. How does it
+work?
+
+The basic idea is finding a way to group the snowflakes into
+``buckets'' and have snowflakes that are obviously not the same into
+different buckets. If this is possible, then, when we have to check
+whether a snowflake has a twin or not, we can just compare it to those
+snowflakes that are in its same bucket, instead of comparing with all
+the other snowflakes!
+
+The ``buckets'' are going to be linked-lists in an array.
+
+How to find a way to see whether two snowflakes are obviously not
+twins? A simple way is performing the sum of their arms. This is not
+perfect (different snowflakes will end up in the same bucket) but it
+will be enough. So we will have a function that takes a snowflakes and
+outputs a number (the ``code''). That code will give the bucket of the
+snowflakes, that is, the index in the arrya of buckets (linked-lists).
+
+Moreover, for memory reasons, we will use an array of 100,000
+elements.  This means that the function that gives the code for a
+snowflakes will have to return a code between 0 and 100,000. But the
+sum of the arms of a snowflake might be greater than 100,000! For this
+we will use a little trick: we will use the % operator (See
+p. 13). This means, again, that some different snowflakes will be in
+the same bucket, but it should be an overall beneficial price to pay.
+
+#+begin_src C
+  #define SIZE 100000
+
+  int code (int snowflake[]) {
+      return (snowflake[0] + snowflake[1] + snowflake[2]
+              + snowflake[3] + snowflake[4] + snowflake[5]) % SIZE;
+  }
+
+  typedef struct snowflake_node {
+      int snowflake[6];
+      struct snowflake_node *next;
+  } snowflake_node;
+
+  void identify_identical(snowflake_node *snowflakes[]) {
+      snowflake_node *node1, *node2;
+      int i;
+      for (i = 0; i < SIZE; i++) {
+          node1 = snowflakes[i];
+          while (node1 != NULL) {
+              node2 = node1->next;
+              while (node2 != NULL) {
+                  if (are_identical(node1->snowflake, node2->snowflake)) {
+                      printf("Twin snowflakes found.\n");
+                      return;
+                  }
+                  node2 = node2->next;
+              }
+              node1 = node1->next;
+          }
+      }
+      printf("No two snowflakes are alike.\n");
+  }
+
+  int main(void) {
+      static snowflake_node *snowflakes[SIZE] = {NULL};
+      snowflake_node *snow;
+      int n, i, j, snowflake_code;
+      scanf("%d", &n);
+      for (i = 0; i < n; i++) {
+          snow = malloc(sizeof(snowflake_node));
+          if (snow == NULL) {
+              fprintf(stderr, "malloc error\n");
+              exit(1);
+          }
+          for (j = 0; j < 6; j++)
+              scanf("%d", &snow->snowflake[j]);
+          snowflake_code = code(snow->snowflake);
+          snow->next = snowflakes[snowflake_code];
+          snowflakes[snowflake_code] = snow;
+      }
+      identify_identical(snowflakes);
+      // we should be deallocating, but we are not...
+      return 0;
+  }
+#+end_src
+
+This solution is way faster than the previous one. We expect has
+tables to give us a *linear-time* solution, or *O(n)* solution.
+
+** Hash Tables
+A hash table consists of /buckets/ and a /hash function/.
+
+Here are three design decisions when designing a hash table:
+- Size of the array. There is a memory-time tradeoff. The bigger the
+  array the more the memory used when initializing. The smaller the
+  array the more the collisions.
+- The hash function. A good hash function will spread data
+  around. (Malicious input --- input studied so that data will collide
+  --- is always a possibility though.)
+- What to use as buckets. Using linked list is known as a /chaining/
+  scheme. /Open-addressing/ is another possibility.
+
+Why using a hash table? Assuming there are is not pathological data,
+given that it is expected that each linked list will have only a few
+elements, and therefore that making all comparison within a bucke will
+take only a small, constanst, number of steps, hash tables are
+expected to be a /linear-time/ solution (O(n) solution).
+
+** Compound Words
+*** The Problem
+UVa problem 10391.
+
+We are given a bunch of strings (words) and we have to print those
+strings (words) that are ``compounds words'', that is, the results of
+concatenanting two of any of the strings that we are given.
+**** Input
+One string (word) per line, in alphabetical order. At most 120,000
+strings.
+**** Output
+Each compound word on its own line, in alphabetical order.
+Time limit: three seconds.
+*** Solution
+#+begin_src C
+    /* based on https://stackoverflow.com/questions/16870485 */
+    char *read_line(int size) {
+        char *str;
+        int ch;
+        int len = 0;
+        str = malloc(size);
+        if (str == NULL) {
+            fprintf(stderr, "malloc error\n");
+            exit(1);
+        }
+        while ((ch = getchar()) != EOF && (ch != '\n')) {
+            str[len++] = ch;
+            if (len == size) {
+                size = size * 2;
+                str = realloc(str, size);
+                if (str == NULL) {
+                    fprintf(stderr, "realloc error\n");
+                    exit(1);
+                }
+            }
+        }
+        str[len] = '\0';
+        return str;
+    }
+
+  #define NUM_BITS 17
+
+  typedef struct word_node {
+      char **word;
+      struct word_node *next;
+  } word_node;
+
+  int in_hash_table(word_node *hash_table[], char *find,
+                    unsigned find_len) {
+      unsigned word_code;
+      word_node *wordptr;
+      word_code = oaat(find, find_len, NUM_BITS);
+      wordptr = hash_table[word_code];
+      while (wordptr) {
+          if ((strlen(*(wordptr->word)) == find_line) &&
+              (strncmp(*(wordptr->word), find, find_len) == 0))
+              return 1;
+          wordptr = wordptr->next;
+      }
+      return 0;
+  }
+
+  void identify_compound_words(char *words[],
+                               word_node *hash_table[],
+                               int total_words) {
+      int i, j;
+      unsigned length;
+      for (i = 0; i < total_words; i++) {
+          len = strlen(words[i]);
+          for (j = 1; j < len; j++) {
+              if (in_hash_table() &&
+                  in_hash_table()) {
+                  printf("%s\n", words[i]);
+                  break;
+              }
+          }
+      }
+  }
+
+  #define WORD_LENGTH 16
+
+  int main(void) {
+      static char *words[1 << NUM_BITS] = {NULL};
+      static word_node *hash_table[1 << NUM_BITS] = {NULL};
+      int total = 0;
+      char *word;
+      word_node *wordptr;
+      unsigned length, word_code;
+      word = read_line(WORD_LENGTH);
+      while (*word) {
+          words[total] = word;
+          wordptr = malloc(sizeof(word_node));
+          if (wordptr == NULL) {
+              fprintf(stderr, "malloc error\n");
+              exit(1);
+          }
+          length = strlen(word);
+          word_code = oaat(word, length, NUM_BITS);
+          wordptr->word = &words[total];
+          wordptr->next = hash_table[word_code];
+          hash_table[word_code] = wordptr;
+          word = read_line(WORD_LENGTH);
+          total++;
+      }
+      identify_compound_words(words, hash_table, total);
+      return 0;
+  }
+#+end_src
+
+We read all strings using ~read_line~, and we put each of them in the
+~words~ array in the order we got them.
+
+We also put each of them in the ~hash_table~ array (at the right, by
+calculating the respective code.)
+
+Once we have populated the hash table, we can call
+~identify_compound_words~.
+
+Why using also a ~words~ array and not only a ~hash_table~ array? We
+have to print the compound words in alphabetical order. The input is
+already in alphabetical order. If we didn't use the ~word~ array, and
+only populated the hash table, we would lose the alphabetical order
+that we already have, which means that we would have sort the words
+again at some point. By storing the input into the ~words~ array we
+get sorting for free.
+
+(A couple of ideas that could improve /expected (average) performace/:
+(i) when splitting the word and checking whether both splits are in
+the hash table, check first the smaller word, because it is more
+likely to be present [and if it's not, we pass to the next word
+without checking the other split]; (ii) instead of splitting starting
+from the beginning of the word, start from the middle and then try
+first move on the left, then on the right, then left, then right, and
+so on.)
+
+** Spelling Check: Deleting a Letter
+
+* 2
+** Descendant Distance
+*** The problem
+The number of descendants of a node at distance /d/ is the number of
+nodes that are exactly /d/ edges down the tree from that node
+
+We are given a family tree and a distance /d/. We have to output the
+nodes with a high number of descendants at distance /d/.
+
+*** Input
+pp. 58-9.
+*** Output
+p. 59.
+*** 
+#+begin_src C
+  typedef struct node {
+      char *name;
+      int num_children;
+      struct node **children;
+      int score;
+  } node;
+#+end_src
+
+
+#+begin_quote
+we’ll maintain an array of pointers to nodes. Every time we see a name
+we haven’t seen before, we create a new node and add a pointer to that
+node to the array
+#+end_quote
+
+It will be useful then to have a helper function that searches a node
+in the array:
+
+#+begin_src C
+  node *find_node(node *nodes[], int num_nodes, char *name) {
+      int i;
+      for (i = 0; i < num_nodes; i++)
+          if (strcmp(nodes[i]->name, name) == 0)
+              return nodes[i];
+      return NULL;
+  }
+#+end_src
+(We could have used a hash table!)
+
+When a name is not found in the array, we'll have to create a node
+with that name.
+
+#+begin_src C
+  void *malloc_safe(int size) {
+      char *mem = malloc(size);
+      if (mem == NULL) {
+          fprintf(stderr, "malloc error\n");
+          exit(1);
+      }
+      return mem;
+  }
+
+  node *new_node(char *name) {
+      node *n = malloc_safe(sizeof(node));
+      n->name = name;
+      n->num_children = 0;
+      return n;
+  }
+#+end_src
+
+
+Function to read and build a tree:
+#+begin_src C
+  int read_tree(node *nodes[], int num_lines) {
+      node *parent_node, *child_node;
+      char *parent_name, *child_name;
+      int i, j, num_children;
+      int num_nodes = 0;
+      for (i = 0; i < num_lines; i++) {
+          parent_name = malloc_safe(MAX_NAME + 1);
+          scanf("%s", parent_name);
+          scanf("%d", &num_children);
+          parent_node = find_node(nodes, num_nodes, parent_name);
+          if (parent_node == NULL) {
+              parent_node = new_node(parent_name);
+              nodes[num_nodes] = parent_node;
+              num_nodes++;
+          }
+          else
+              free(parent_name);
+          parent_node->children = malloc_safe(sizeof(node) * num_children);
+          parent_node->num_children = num_children;
+          for (j = 0; j < num_children; j++) {
+              child_name = malloc_safe(MAX_NAME + 1);
+              scanf("%s", child_name);
+              child_node = find_node(nodes, num_nodes, child_name);
+              if (child_node == NULL) {
+                  child_node = new_node(child_name);
+                  nodes[num_nodes] = child_node;
+                  num_nodes++;
+              }
+              else
+                  free(child_name);
+              parent_node->children[j] = child_node;
+          }
+      }
+      return num_nodes;
+  }
+#+end_src
+
+Let's write a function that calculates the number of descendants at
+distance /d/ from a single node. How?
+
+Given a node /n/:
+- Rule 1. If /d/ equals one, then the number of descendants at
+  distance /d/ equals the number of children of /n/.
+- Rule 2. If /d/ is greater than one, then then number of descendants
+  at distance /d/ equals the sum of the nodes at distance /d/-1 in
+  each subtree of /n/
+
+In C:
+#+begin_src C
+  int score_one(node *n, int d) {
+      int total, i;
+      if (d == 1)
+          return n->num_children;
+      total = 0;
+      for (i = 0; i < n->num_children; i++)
+          total = total + score_one(n->children[i], d - 1);
+      return total;
+  }
+#+end_src
+
+To calculate the number of descendants at distance /d/ for all nodes:
+#+begin_src C
+  void score_all (node **nodes, int num_nodes, int d) {
+      int i;
+      for(i = 0; i < num_nodes; i++)
+          nodes[i]->score = score_one(nodes[i], d);
+  }
+#+end_src
+
+Now we can compute which nodes have the highest score.
+
+We can use the ~qsort~ function. For that we need a comparison
+function:
+#+begin_src C
+  int compare(const void *v1, const void *v2) {
+      const node *n1 = *(const node **)v1;
+      const node *n2 = *(const node **)v2;
+      if (n1->score > n2->score)
+          return -1;
+      if (n1->score < n2->score)
+          return 1;
+      return strcmp(n1->name, n2->name);
+#+end_src
+
+After having sorted the nodes, we must output the names at the
+beginning of the nodes array:
+#+begin_src C
+  void output_info(node *nodes[], int num_nodes) {
+      int i = 0;
+      while (i < 3 && i < num_nodes && nodes[i]->score > 0) {
+          printf("%s %d\n", nodes[i]->name, nodes[i]->score);
+          i++;
+          while (i < num_nodes &&
+                 nodes[i]->score == nodes[i-1]->score) {
+              printf("%s %d\n", nodes[i]->name, nodes[i]->score);
+              i++;
+          }
+      }
+  }
+#+end_src
+*** Putting everything together
+#+begin_src C
+  #define MAX_NODES 1000
+
+  int main(void) {
+      int num_cases, case_num;
+      int n, d, num_nodes;
+      node **nodes = malloc_safe(sizeof(node) * MAX_NODES);
+      scanf("%d", &num_cases);
+      for (case_num = 1; case_num <= num_cases; case_num++) {
+          printf("Tree %d:\n", case_num);
+          scanf("%d %d", &n, &d);
+          num_nodes = read_tree(nodes, n);
+          score_all(nodes, num_nodes, d);
+          qsort(nodes, num_nodes, sizeof(node*), compare);
+          output_info(nodes, num_nodes);
+          if (case_num < num_cases)
+              printf("\n");
+      }
+      return 0;
+  }
+#+end_src
+** Tree Candy
+*** Problem
+*Input*: five lines. Each is at most 255 chars. Each describes a
+``neighborhood''.
+
+*Output*: five lines. Each corresponds to one line of the input. Each
+contains two integers separated by a space: the minimum number of
+streets walked to obtain all the candy and the total amount of candy
+obtained.
+
+*** Code to represent trees
+Here is how we represent a node:
+#+begin_src C
+  typedef struct node {
+      int candy;
+      struct node *left, *right;
+  } node;
+#+end_src
+
+A couple of functions to build trees:
+#+begin_src C
+  node *new_house(int candy) {
+      node *house = malloc(sizeof(node));
+      if (house == NULL) {
+          fprintf(stderr, "malloc error\n");
+          exit(1);
+      }
+      house->candy = candy;
+      house->left = NULL;
+      house->right = NULL;
+      return house;
+  }
+
+  node *new_nonhouse(node *left, node *right) {
+      node *nonhouse = malloc(sizeof(node));
+      if (nonhouse == NULL) {
+          fprintf(stderr, "malloc error\n");
+          exit(1);
+      }
+      nonhouse->left = left;
+      nonhouse->right = right;
+      return nonhouse;
+  }
+#+end_src
+
+*** Total amount of candy
+How can we collect all the candy? One way is to use a stack
+(pp. 39-45). But there is a better way: using a recursive function.
+
+We just need two rules:
+- Rule1. If the root of the tree is a house node, then the total
+  amount of candy in the tree equals the amount of candy at that
+  house.
+- Rule 2. If the root of the tree is a nonhouse node, then the total
+  amount of candy in the tree equals the total amount of candy in the
+  left subtree plus the total amount of candy in the right subtree.
+
+In C:
+#+begin_src C
+  int tree_candy(node *tree) {
+      if (!tree->left && !tree->right)
+          return tree->candy;
+      return tree_candy(tree->left) + tree_candy(tree->right);
+  }
+#+end_src
+
+*** Minimum number of streets
+How to calculate the minimum number of streets that must be walked to
+obtain all the candy?
+
+We can great simplify the problem by returning to the root: we can
+subtract off the extra street at the end and calculate the minimum
+number of streets walked (Cf. p. 50).
+
+Here are two rules we can use:
+- Rule 1. If the root of the street is a house node, then the number
+  of streets we walk is zero.
+- Rule 2. If the root of the tree is a nonhouse node, then the number
+  of streets we walk is the number of streets we walk for the left
+  subtree plus the number of streets we walk for the rigth subtree
+  plus 4.
+
+In code:
+#+begin_src C
+  int tree_streets(node *tree) {
+      if (!tree->left && !tree->right)
+          return 0;
+      return tree_candy(tree->left) + tree_candy(tree->right) + 4;
+  }
+#+end_src
+
+If we walk through the tree in Figure 2-2 starting at H and ending at
+H, collecting all the candy, visiting each each house once and without
+unnecessarily walk streets, then, no matter how we walk the tree, we
+walk 32 streets.
+
+The minimum number of streets that we can walk is 26 (we have manually
+calculate earlier). How do we get to 26? 32 minus 6. Is there a
+reason?
+
+It turns out that 6 is the height of the tree and that, in order to
+get the minimum number of streets walked, we can just subtract that
+number. (Cf. p. 51)
+
+How to calculate the heigth? We can use, again, two rules:
+- Rule 1. If the root of the tree is a house node, then the tree's
+  height is zero.
+- Rule 2. If the root of the tree is a nonhouse, then the tree's
+  height is one more than the maximum of the left subtree's height and
+  the right subtree's height.
+
+In C:
+#+begin_src C
+int max(int v1, int v2) {
+    if (v1 > v2)
+	return v1;
+    else
+	return v2;
+}
+
+int tree_height(node *tree) {
+    if (!tree->left && !tree->right)
+	return 0;
+    return 1 + max(tree_height(tree->left), tree_height(tree->right));
+}
+#+end_src
+
+*** Solving the problem for a given tree
+
+With ~tree_streets~ and ~tree_height~ we can calculate the minimum
+number of streets. With ~tree_candy~ we can calculate the total amount
+of candy. We can, then, solve the problem for a given tree:
+#+begin_src C
+  void tree_solve(node *tree) {
+      int candy = tree_candy(tree);
+      int height = tree_height(tree);
+      int num_streets = tree_streets(tree) - height;
+      printf("%d %d\n", num_streets, candy);
+  }
+#+end_src
+
+*** Reading the input
+Trees are textually represented following these two rules
+(Cf. pp. 53-4):
+
+- Rule 1. If the text is the digits of integer c, then the tree is a
+  single house node with c candy.
+
+- Rule 2. If the text starts with an opening parenthesis, then the root
+  of the tree is a nonhouse node. After the opening parenthesis, the
+  text contains the tree’s left subtree, a space, the tree’s right
+  subtree, and a closing parenthesis.
+
+Here is the code. (See pp. 54-7 for the explanation.  Important
+technique highlighted: sometimes we might want recursive calls to pass
+values between them. A way to do so is using a pointer --- here ~pos~)
+
+#+begin_src C
+  node *read_tree_helper(char *line, int *pos) {
+      node *tree;
+      tree = malloc(sizeof(node));
+      if (tree == NULL) {
+          fprintf(stderr, "malloc error\n");
+          exit(1);
+      }
+      if (line[*pos] == '(') {
+          (*pos)++;
+          tree->left = read_tree_helper(line, pos);
+          (*pos)++;
+          tree->right = read_tree_helper(line, pos);
+          (*pos)++;
+          return tree;
+      } else {
+          tree->left = NULL;
+          tree->right = NULL;
+          tree->candy = line[*pos] - '0';
+          (*pos)++;
+          if (line[*pos] != ')' && line[*pos] != ' ' &&
+              line[*pos] != '\0') {
+              tree->candy = tree->candy * 10 + line[*pos] - '0';
+              (*pos)++;
+          }
+          return tree;
+      }
+  }
+#+end_src
+
+And finally:
+#+begin_src C
+  #define SIZE 255
+  #define TEST_CASES 5
+  int main(void) {
+      int i;
+      char line[SIZE + 1];
+      node *tree;
+      for (i = 0; i < TEST_CASES; i++) {
+          gets(line);
+          tree = read_tree(line);
+          tree_solve(tree);
+      }
+      return 0;
+  }
+#+end_src
+
+#+begin_quote
+It’s not always easy to know whether recursion will offer a clean
+solution to a problem. Here’s the telltale sign: whenever a problem
+can be solved by combining solutions to smaller subproblems, you
+should try recursion. [...] think back to calculating the total amount
+of candy in the tree.  This is not an easy problem. What if someone
+told you the total amount of candy in the left subtree and the total
+amount of candy in the right subtree?  That would make the problem
+easier. A problem made easier by virtue of knowing its subproblem
+solutions is a strong clue that recursion applies.
+#+end_quote
+
+* 3
+** Burger Fervor
+*** The problem
+Homer has /t/ minutes and some burgers of two types. One type takes
+/m/ minutes to eat and the other type takes /m/ minutes to eat. Homer
+wants to spend all /t/ minutes eating burgers, but sometimes that's
+not possible. If he can spend exactly /t/ minutes eating burgers, we
+have to determine the max number of burgers he cant eat. If he can't
+spend /t/ minutes eating burgers, we have to determin the max amount
+of time he can spend eating burgers.
+
+**** Input
+#+begin_quote
+We read test cases until there is no more input. Each test case is
+represented by a line of three integers: /m/, the number of minutes it
+takes to eat the first kind of burger; /n/, the number of minutes it
+takes to eat the second kind of burger; and /t/, the number of minutes
+that Homer will spend eating burgers and drinking beer. Each /m/, /n/,
+and /t/ value is less than 10,000. (72)
+#+end_quote
+
+**** Output
+#+begin_quote
+For each test case:
+
+- If Homer can spend exactly t minutes eating burgers, then output the
+  maximum number of burgers that he can eat.
+
+- Otherwise, output the maximum number of burgers that Homer can eat
+  when maximizing his time eating burgers, a space, and the number of
+  remaining minutes (during which he’ll drink beer).  The time limit
+  for solving the test cases is three seconds. (72)
+#+end_quote
+
+*** Optimal Solutions
+We should determine whether Homer can eat burgers for exactly /t/
+minutes. If he can, then we should report the max number of burgers he
+can eat. If he can't, then we should check whether he can eat burgers
+for exactly /t/-1 minutes. If he can, then we report the max number of
+burgers he can eat and the number of minutes remaining (that he spend
+drinking beers). If he can't...
+
+If /t/ = 0, then the correct output is 0.
+
+And what about other values for /t/?
+
+Here is a strategy. Suppose Homer can spend exactly /t/ minutes eating
+burgers.
+
+The last burger he eats must be either a /m/ burger or a /n/
+burger. If the last burger Homer eats in an optimal solution is a /m/
+burgers, then we know that he has /t/ - /m/ minutes left to
+spend. Those /t/ - /m/ minutes must be filled entirely with burgers
+(remember our initial assumption). If we had the optimal number of
+burgers to fill those /t/ - /m/ minutes, then we would be able to give
+the solution: that number + one /m/-minute burger. If we knew that the
+final burger that Homer eats in an optimal solution is a /n/-minute
+burger, then we can say /mutatis mutandis/ the same.
+
+But how can we know whether the last burger Homer eats? We don't need
+to... We can just assume that it was a /m/-minute burger and solve the
+problem that way. Then we assume that it was a /n/-minute burger and
+solve the problem that way. In both case we have subproblems to
+solve. This is a hint that we might want to use recursion.
+
+*** Recursion
+We should begin by writing a function that solve the problem for /t/
+minutes:
+#+begin_src C
+int solve_t(int m, int n, int t);
+#+end_src
+
+If Home can spend exactly /t/ minutes eating burgers, then we'll
+return the maximum number of burgers he can eat. If Homer cannot spend
+/t/ minutes eating only burgers, then we'll return -1.
+
+We already know that:
+#+begin_src C
+  if (t == 0)
+    return 0;
+#+end_src
+
+This is the /base/ of our recursion (Cf. chapter 2).
+
+Consider that the final burger can be a /m/-minute burger only if /t/
+>= /m/. (The same for the subproblem in which the minute are /t/ -
+/m/: the final burger can be a /m/-minute burger only if /t/ - /m/ >=
+m.) So we can say:
+#+begin_src C
+  int first;
+  if (t >= m)
+      first = solve_t(m, n, t - m);
+  else
+      first = -1;
+#+end_src
+
+The code, in the case of the /n/ minute burger, will be analogous:
+#+begin_src C
+  int first;
+  if (t >= m)
+      first = solve_t(m, n, t - m);
+  else
+      first = -1;
+#+end_src
+
+Zingaro summarizes the situation thus:
+#+begin_quote
+- The variable first is the solution to the t - m subproblem. If it’s
+  -1, then we can’t fill t - m minutes with burgers. If it’s anything
+  else, then it gives the optimal number of burgers that Homer can eat
+  in exactly t - m minutes.
+
+- The variable second is the solution to the t - n subproblem. If it’s
+  -1, then we can’t fill t - n minutes with burgers. If it’s anything
+  else, then it gives the optimal number of burgers that Homer can eat
+  in exactly t - n minutes.
+#+end_quote
+
+It should be clear that:
+#+begin_src C
+  if (first == -1 && second == -1)
+    return -1;
+#+end_src
+
+If /first/ or /second/ or both are greater than -1:
+#+begin_src C
+return max(first, second) + 1;
+#+end_src
+
+Here is the full function:
+#+begin_src C
+  int max(int v1, int v2) {
+      if (v1 > v2)
+          return v1;
+      else
+          return v2;
+  }
+
+  int solve_t(int m, int n, int t) {
+      int first, second;
+      if (t == 0)
+          return 0;
+      if (t >= m)
+          first = solve_t(m, n, t - m);
+      else
+          first = -1;
+      if (t >= n)
+          second = solve_t(m, n, t - n);
+      else
+          second = -1;
+      if (first == -1 && second == -1)
+          return -1;
+      else
+          return max(first, second) +1 ;
+#+end_src
+
+That magically works...
+
+Remember, though, that we also have to print the minute Home drinks
+beer in cases where he can't spend all the time eating burgers.
+
+#+begin_src C
+  void solve(int m, int n, int t) {
+      int result, i;
+      result = solve_t(m, n, t);
+      if (result >= 0)
+          printf("%d\n", result);
+      else {
+          i = t - 1;
+          result = solve_t(m, n, i);
+          while (result == -1) {
+              i--;
+              result = solve_t(m, n, i);
+          }
+          printf("%d %d\n", result, t - 1);
+      }
+  }
+#+end_src
+
+Finally we write the main function:
+#+begin_src C
+  int main(void) {
+      int m, n, t;
+      while (scanf("%d%d%d", &m, &n, &t) != -1)
+          solve(m, n, t);
+      return 0;
+  }
+#+end_src
+
+*** Memoization
+Our previous solution delivers the correct result but it's too
+slow. Why?
+
+The values of /t/ can be up to 9,999, but with the following input the
+we already exceed the time-limit!
+#+begin_src 
+4 2 88
+#+end_src
+
+A way in which we could save some work is avoiding call solve_t with
+value with which we have already called it.
+
+Here is our previous solution with some code that counts the number of
+times solve_t is called:
+#+begin_src C
+  unsigned long long total_calls;
+
+  int solve_t(int m, int n, int t) {
+      int first, second;
+      total_calls++;
+      if (t == 0)
+          return 0;
+      if (t >= m)
+          first = solve_t(m, n, t - m);
+      else
+          first = -1;
+      if (t >= n)
+          second = solve_t(m, n, t - n);
+      else
+          second = -1;
+      if (first == -1 && second == -1)
+          return -1;
+      else
+          return max(first, second) + 1;
+  }
+
+  void solve(int m, int n, int t) {
+      int result, i;
+      total_calls = 0;
+      result = solve_t(m, n, t);
+      if (result >= 0)
+          printf("%d\n", result);
+      else {
+          i = t - 1;
+          result = solve_t(m, n, i);
+          while (result == -1) {
+              i--;
+              result = solve_t(m, n, i);
+          }
+          printf("%d %d\n", result, t - i);
+      }
+      printf("Total calls to solve_t: %llu\n", total_calls);
+  }
+#+end_src
+
+Now we should find a way to remember the answers to a the calls of
+solve_t we make, so that we don't have to call solve_t again when we
+need those answers. This technique is called /memoization/.
+
+Memoization works in two steps:
+1. Declare an array large enough to hold the solutions to all
+   possible subproblems. This array is typicalle called ~memo~. It
+   should be initialized to a valued reserved to mean ``unknown
+   value''.
+2. At the start of the recursive function, add code to check whether
+   the subproblem solution has already been solved. If the answer is
+   already in ~memo~, then we simply return it. Otherwise we have to
+   solve the problem now. Whenever we solve a problem, we store the
+   solution in ~memo~.
+
+Let's implement this.
+
+The right place where to declare and initialize the ~memo~ array is
+~solve~, since that's the function that first gets called for each
+test case. ``Unknown value'' will represented by -2.
+
+#+begin_src C
+  #define SIZE 10000
+
+  void solve(int m, int n, int t) {
+      int result, i;
+      int memo[SIZE];
+      for (i = 0; i <= t; i++)
+          memo[i] = -2;
+      result = solve_t(m, n, t, memo);
+      if (result >= 0)
+          printf("%d\n", result);
+      else {
+          i = t - 1;
+          result = solve_t(m, n, i, memo);
+          while (result == -1) {
+              i--;
+              result = solve(m, n, i, memo);
+          }
+          printf("%d %d\n", result, t - 1);
+      }
+  }
+#+end_src
+
+As you can see, now we are passing ~memo~ to ~solve_t~. Here is the
+update version of ~solve_t~:
+
+#+begin_src C
+  int solve_t(int m, int n, int t, int mem[]) {
+      int first, second;
+      if (memo[t] != -2)
+          return memo[t];
+      if (t == 0) {
+          memo[t] = 0;
+          return memo[t];
+      }
+      if (t >= m)
+          first = solve_t(m, n, t - m, memo);
+      else
+          first = -1;
+      if (t >= n)
+          second = solve_t(m, n, t - n, memo);
+      else
+          second = -1;
+      if (first == -1 && second == -1) {
+          memo[t]  = -1;
+          return memo[t];
+      } else {
+          memo[t] = max(first, second) + 1;
+          return memo[t];
+      }
+  }
+#+end_src
+
+*** Dynamic Programming
+Suppose we could orchestrate things so that ~memo~ always hold the
+solution we look up. Never having to make a recursive call. Always
+been able to look up the solution right away. /Dynamic Programming/
+makes this possible.
+
+Our dynamic-programming solution dispenses with the ~solve_t~
+function and does everythin inside ~solve~.
+
+#+begin_src C
+  void solve(int m, int n, int t) {
+      int result, i, first, second;
+      int dp[SIZE];
+      dp[0] = 0;
+      for (i = 1; i <= t; i++) {
+          if (i >= m)
+              first = dp[i - m];
+          else
+              first = -1;
+          if (i >= n)
+              second = dp[i - n];
+          else
+              second = -1;
+          if (first == -1 && second == -1)
+              dp[i] = -1;
+          else
+              dp[i] = max(first, second) + 1;
+      }
+
+      result = dp[t];
+      if (result >= 0)
+          printf("%d\n", result);
+      else {
+          i = t - 1;
+          result = dp[i];
+          while (result == -1) {
+              i--;
+              result = dp[i];
+          }
+          printf("%d %d\n", result, t - i);
+      }
+  }
+#+end_src
+
+*** The steps toward an optimal solution
+The first step is to show how to decompose an optimal solution to a
+problem into optimal solutions for smaller subproblems.
+
+The second step is using recursion.
+
+The possible problem with a recursive solution is that the same
+subproblems sometimes are solved over and over (``overlapping
+subproblems''). When there is such a problem, then memoization can be
+used (third step). The subproblems still overlap, but they are solved
+only once.
+
+Sometimes we want eliminate recursion and we can do so by solving
+smaller subproblems before larger subproblems. This is dynamic
+programming (fourth step).
+
+What's better: memoization or dynamic programming? It depends...
+
+** Moneygrubbers
+*** The problem
+You want to buy at least /k/ apples and do so a cheaply as possible.
+You are given the price of one apple and /m/ pricing schemes. Each
+pricing scheme gives you a number /n/ of apples and a price /p/ for
+it.
+*** Input
+#+begin_quote
+We read test cases until there’s no more input. Each test case
+consists of the following lines:
+
+- A line containing the price for buying one apple, followed by the
+  number /m/ of pricing schemes for this test case. /m/ is at most 20.
+
+- /m/ lines, each of which gives a number /n/ and total price /p/ for
+  buying /n/ apples. /n/ is between 1 and 100.
+
+- A line containing integers, where each integer /k/ is between 0 and
+  100 and gives the desired number of apples to buy.
+
+Each price in the input is a floating-point number with exactly two
+decimal digits. (92)
+#+end_quote
+
+For example:
+#+begin_src
+1.75 2
+3 4.00
+2 2.50
+1 4
+#+end_src
+*** Output
+#+begin_quote
+For each test case, output the following:
+- A line containing `Case /c/' where /c/ is the number of the test
+  case starting at 1.
+  
+- For each integer /k/, a line containing Buy /k/ for $/d/, where /d/
+  is the cheapest way that we can buy at least /k/ apples. (92)
+#+end_quote
+
+For example:
+#+begin_src
+Case 1:
+Buy 1 for $1.75
+Buy 4 for $5.00
+#+end_src
+
+*** Characterizing Optimal Solutions
+In Burger Fervor we reasoned that if Homer can spend /t/ minutes
+eating burgers, then his last burger must be either a /m/-minute
+burger or a /n/-minute burger. We can say something analogus here.
+An optimal solutions for buying /k/ apples must end in one of small
+number of ways:
+- using one of the /m/ pricing schemes;
+- buying a single apple.
+In Burger Fervor we had to solve two subproblems. Here we have to
+solve /m/ + 1 subproblems.
+
+An optimal solution for buying /k/ apples ends with us paying /p/
+dollars for /n/ apples. This means that there are also /k/ - /n/
+apples that we need to buy and their cost must be added to /p/. The
+/k/ - /n/ apples moreover must be bought using an optimal solution. If
+the solution to the subproblem weren't optimal, then the solution to
+the problem wouldn't be optimal either!
+
+Notice that --- unlike Burger Fervor --- here we can always find a
+solution for any number /k/, given that we always have the option of
+buying one apple.
+
+*** Recursion
+Let's write a helper function:
+#+begin_src C
+  double solve_k(int num[], double price[], int num_schemes, double unit_price, int num_items);
+#+end_src
+~num~: An array of numbers of apples, one element per pricing scheme.
+
+~price~: An array of prices, one element per pricing scheme.
+
+~num_schemes~: The number of pricing schemes.
+
+~unit_price~: The price for one apple.
+
+~num_items~: The number of apples we want to buy.
+
+~solve_k~ return the minimum cost for buying exactly ~num_items~ of
+apples.
+
+#+begin_src C
+  double min(double v1, double v2) {
+      if (v1 <v2)
+          return v1;
+      else
+          return v2;
+  }
+
+  double solve_k(int num[], double price[], int num_schemes,
+                 double unit_price, int num_items) {
+      double best, result;
+      int i;
+      if (num_items == 0)
+          return 0;
+      else {
+          result = solve_k(num, price, num_schemes, unit_price,
+                           num_items -1);
+          best = result + unit_price;
+          for (i = 0; i < num_schemes; i++)
+              if (num_items - num[i] >= 0) {
+                  result = solve_k(num, price, num_schemes, unit_price,
+                                   num_items - num[i]);
+                  best = min(best, result + price[i]);
+              }
+          return best;
+      }
+  }
+#+end_src
+
+~solve_k~ is analogous to ~solve_t~ in Burger Fervor, with one
+difference: the for loop. In Burger Fervor we only had to subproblems
+to try. Here, instead, we have a subproblem for each pricing schemes
+and a subproblem for the purchase of a single apple. So we need to
+loop over the pricing schemes.
+
+This function, however, does not deal with the fact that we might want
+to buy more than /k/ apples sometimes. In some cases, the right thing
+to do is buying more than /k/ apples because it'll be the cheapest
+thing to do in order to buy /at least k/ apples. This problems could
+be solved with a ~solve~ function analogous to the one in Burger
+Fervor:
+#+begin_src C
+  double solve(int num[], double price[], int num_schemes,
+               double unit_price, int num_items) {
+      double best;
+      int i;
+      best = solve_k(num, price, num_schemes,
+                     unit_price, num_items);
+      for (i = num_items + 1; i < ???; i++)
+          best = min(best, solve_k(num, price, num_schemes,
+                                   unit_price, i));
+      return best;
+  }
+#+end_src
+We use a for loop to trying larger and larger number of apples. But
+how do we know when to stop? The number of apples in a given pricing
+schemes is at most 100...
+
+#+begin_src C
+  #define SIZE 200
+
+  double solve(int num[], double price[], int num_schemes,
+               double unit_price, int num_items) {
+      double best;
+      int i;
+      best = solve_k(num, price, num_schemes,
+                     unit_price, num_items);
+      for (i = num_items + 1; i < SIZE; i++)
+          best = min(best, solve_k(num, price, num_schemes,
+                                   unit_price, i));
+      return best;
+  }
+#+end_src
+
+Here is the main function.
+#+begin_src C
+  #define MAX_SCHEMES 20
+
+  int main(void) {
+      int test_case, num_schemes, num_items, more, i;
+      double unit_price, result;
+      int num[MAX_SCHEMES];
+      double price[MAX_SCHEMES];
+      test_case = 0;
+      while (scanf("%lf%d", &unit_price, &num_schemes) != -1) {
+          test_case++;
+          for (i = 0; i < num_schemes; i++)
+              scanf("%d%lf", &num[i], &price[i]);
+          scanf(" ");
+          printf("Case %d:\n", test_case);
+          more = get_number(&num_items);
+          while (more) {
+              result = solve(num, price, num_schemes, unit_price,
+                             num_items);
+              printf("Buy %d for $%.2f\n", num_items, result);
+              more = get_number(&num_items);
+          }
+          result = solve(num, price, num_schemes, unit_price,
+                         num_items);
+          printf("Buy %d for $%.2f\n", num_items, result);
+      }
+      return 0;
+  }
+#+end_src
+
+#+begin_src C
+  int get_number(int *num) {
+      int ch;
+      int ret = 0;
+      ch = getchar();
+      while (ch != ' ' && ch != '\n') {
+          ret = ret * 10 + ch - '0';
+          ch = getchar();
+      }
+      num = ret;
+      return ch == ' ';
+  }
+#+end_src
+
+This works, but it takes ages...
+
+*** Memoization
+We can declare memo in main:
+
+#+begin_src C
+  int main(void) {
+      int test_case, num_schemes, num_items, more, i;
+      double unit_price, result;
+      int num[MAX_SCHEMES];
+      double price[MAX_SCHEMES];
+      double memo[SIZE];
+      test_case = 0;
+      while (scanf("%lf%d", &unit_price, &num_schemes) != -1) {
+          test_case++;
+          for (i = 0; i < num_schemes; i++)
+              scanf("%d%lf", &num[i], &price[i]);
+          scanf(" ");
+          printf("Case %d:\n", test_case);
+          for (i = 0; i < SIZE; i++)
+	          memo[i] = -1;
+          more = get_number(&num_items);
+          while (more) {
+              result = solve(num, price, num_schemes, unit_price,
+                             num_items);
+              printf("Buy %d for $%.2f\n", num_items, result);
+              more = get_number(&num_items);
+          }
+          result = solve(num, price, num_schemes, unit_price,
+                         num_items);
+          printf("Buy %d for $%.2f\n", num_items, result);
+      }
+      return 0;
+  }
+#+end_src
+
+We have to change ~solve~ a and ~solve_k~ too.
+
+#+begin_src C
+  double solve(int num[], double price[], int num_schemes,
+               double unit_price, int num_items, double memo[]) {
+      double best;
+      int i;
+      best = solve_k(num, price, num_schemes, unit_price,
+                     num_items, memo);
+      for (i = num_items + 1; i < SIZE; i++)
+          best = min(best, solve_k(num, price, num_schemes,
+                                   unit_price, i, memo));
+      return best;
+  }
+#+end_src
+
+#+begin_src C
+  double solve_k(int num[], double price[], int num_schemes,
+                 double unit_price, int num_items, double memo[]) {
+      double best, result;
+      int i;
+      if (memo[num_items] != -1)
+          return memo[num_items];
+      if (num_items == 0) {
+          memo[num_items] = 0;
+          return memo[num_items];
+      } else {
+          result = solve_k(num, price, num_schemes, unit_price,
+                           num_items - 1, memo);
+          best = result + unit_price;
+          for (i = 0; i < num_schemes; i++)
+              if (num_items - num[i] >= 0) {
+                  result = solve_k(num, price, num_schemes, unit_price,
+                                   num_items - num[i], memo);
+                  best = min(best, result + price[i]);
+              }
+          memo[num_items] = best;
+          return memo[num_items];
+      }
+  }
+#+end_src
+This works and it's not slow...
+
+The book stops here with respect to this problem. However a possible
+exercise is implementing a dynamic programming solution.
+
+** Hockey Rivalry 
+[[./cco18p1_1.png]]
+[[./cco18p1_2.png]]
+[[./cco18p1_3.png]]
+
+*** Recursive Solution
+#+begin_src C
+  int max(int v1, int v2) {
+      if (v1 > v2)
+          return v1;
+      else
+          return v2;
+  }
+
+  // i = the number of Geese games that we are considiering in this subproblem
+  // j = the number of Hawks games that we are considiering in this subproblem
+  int solve(char outcome1[], char outcome2[], int goals1[],
+            int goals2[], int i, int j) {
+      int first, second, third, fourth;
+      if (i == 0 || j == 0)
+          return 0;
+      if ((outcome1[i] == 'W' && outcome2[j] == 'L' &&
+           goals1[i] > goals2[j]) ||
+           (outcome1[i] == 'L' && outcome2[j] == 'W' &&
+            goals1[i] < goals2[j]))
+          first = solve(outcome1, outcome2, goals1, goals2, i - 1, j - 1) +
+              goals1[i] + goals2[j];
+      else
+          first = 0;
+      second = solve(outcome1, outcome2, goals1, goals2, i - 1, j - 1);
+      third = solve(outcome1, outcome2, goals1, goals2, i - 1, j);
+      fourth = solve(outcome1, outcome2, goals1, goals2, i, j - 1);
+      return max(first, max(second, max(third, fourth)));
+  }
+ 
+  #define SIZE 1000
+
+  int main(void) {
+      int i, n, result;
+      char outcome1[SIZE + 1], outcome2[SIZE + 1];
+      int goals1[SIZE + 1], goals2[SIZE + 1];
+      scanf("%d ", &n);
+      for (int i = 1; i <= n; i++) {
+          scanf("%c", &outcome1[i]);
+      }
+      for (int i = 1; i <= n; i++) {
+          scanf("%d ", &goals1[i]);
+      }
+      for (int i = 1; i <= n; i++) {
+          scanf("%c", &outcome2[i]);
+      }
+      for (int i = 1; i <= n; i++) {
+          scanf("%d ", &goals2[i]);
+      }
+
+      result = solve(outcome1, outcome2, goals1, goals2, n, n);
+      return 0;
+  }
+#+end_src
+
+*** Memoization
+#+begin_src C
+  int main(void) {
+      int i, n, result;
+      char outcome1[SIZE + 1], outcome2[SIZE + 1];
+      int goals1[SIZE + 1], goals2[SIZE + 1];
+      static int memo[SIZE + 1][SIZE + 1]; // the array is huge so we make it static
+      scanf("%d ", &n);
+      for (int i = 1; i <= n; i++) {
+          scanf("%c", &outcome1[i]);
+      }
+      for (int i = 1; i <= n; i++) {
+          scanf("%d ", &goals1[i]);
+      }
+      for (int i = 1; i <= n; i++) {
+          scanf("%c", &outcome2[i]);
+      }
+      for (int i = 1; i <= n; i++) {
+          scanf("%d ", &goals2[i]);
+      }
+      for (i = 0; i <= SIZE; i++)
+          for (j = 0; j <= SIZE; j++)
+              memo[i][j] = -1;
+      result = solve(outcome1, outcome2, goals1, goals2, n, n, memo);
+      printf("%d\n", result);
+      return 0;
+  }
+
+  int solve(char outcome1[], char outcome2[], int goals1[],
+            int goals2[], int i, int j, int memo[SIZE +1][SIZE +1]) {
+      int first, second, third, fourth;
+      if (memo[i][j] != -1)
+          return memo[i][j];
+      if (i == 0 || j == 0) {
+          memo[i][j] = 0;
+          return memo[i][j];
+      }
+      if ((outcome1[i] == 'W' && outcome2[j] == 'L' &&
+           goals1[i] > goals2[j]) ||
+           (outcome1[i] == 'L' && outcome2[j] == 'W' &&
+            goals1[i] < goals2[j]))
+          first = solve(outcome1, outcome2, goals1, goals2, i - 1, j - 1, memo) +
+              goals1[i] + goals2[j];
+      else
+          first = 0;
+      second = solve(outcome1, outcome2, goals1, goals2, i - 1, j - 1, memo);
+      third = solve(outcome1, outcome2, goals1, goals2, i - 1, j, memo);
+      fourth = solve(outcome1, outcome2, goals1, goals2, i, j - 1, memo);
+      memo[i][j] = max(first, max(second, max(third, fourth)));
+      return memo[i][j];
+  }
+#+end_src
+
+*** Dynamic Programming
+#+begin_src C
+  int solve(char outcome1[], char outcome2[], int goals1[],
+            int goals2[], int n) {
+      int i, j;
+      int first, second, third, fourth;
+      static int dp[SIZE + 1][SIZE + 1];
+      for (i = 0; i <= n; i++)
+          dp[0][i] = 0;
+      for (i = 0; i <= n; i++)
+          dp[i][0] = 0;
+      for (i = 1; i <= n; i++)
+          for (j = 1; j <= n; j++) {
+              if ((outcome[i] == 'W' && outcome2[j] == 'L' &&
+                   goals[i] > goals2[j]) ||
+                  (outcome[i] == 'L' && outcome2[j] == 'W' &&
+                   goals1[i] < goals2[j]))
+                  first = dp[i-1][j-1] + goals1[i] + goals2[j];
+              else		
+                  first = 0;
+              second = dp[i-1][j-1];
+              third = dp[i-1][j];
+              fourth = dp[i][j-1];
+              dp[i][j] = max(first, max(second, max(third, fourth)));
+          }
+      return dp[n][n];
+  }
+
+  int main(void) {
+      int i, n, result;
+      char outcome1[SIZE + 1], outcome2[SIZE + 1];
+      int goals1[SIZE + 1], goals2[SIZE + 1];
+      static int memo[SIZE + 1][SIZE + 1]; // the array is huge so we make it static
+      scanf("%d ", &n);
+      for (int i = 1; i <= n; i++) {
+          scanf("%c", &outcome1[i]);
+      }
+      for (int i = 1; i <= n; i++) {
+          scanf("%d ", &goals1[i]);
+      }
+      for (int i = 1; i <= n; i++) {
+          scanf("%c", &outcome2[i]);
+      }
+      for (int i = 1; i <= n; i++) {
+          scanf("%d ", &goals2[i]);
+      }
+      for (i = 0; i <= SIZE; i++)
+          for (j = 0; j <= SIZE; j++)
+              memo[i][j] = -1;
+      result = solve(outcome1, outcome2, goals1, goals2, n);
+      printf("%d\n", result);
+      return 0;
+  }
+#+end_src
+**** Using two one-dimensional arrays instead of one two-dimensional one
+#+begin_src C
+  int solve(char outcome1[], char outcome2[], int goals1[],
+            int goals2[], int n) {
+      int i, j, k;
+      int first, second, third, fourth;
+      static int previous[SIZE +1], current[SIZE +1];
+      for (i = 0; i <= n; i++)
+          previous[i] = 0;
+      for (i = 1; i <= n; i++) {
+          for (j = 1; j <= n; j++) {
+              if ((outcome[i] == 'W' && outcome2[j] == 'L' &&
+                   goals1[i] > goals2[j]) ||
+                  (outcome[i] == 'L' && outcome2[j] == 'W' &&
+                   goals1[i] < goals2[j]))
+                  first = previous[j-1] + goals1[i] + goals2[j];
+              else
+                  first = 0;
+              second = previous[j-1];
+              third = previous[j];
+              fourth = previous[j-1];
+              current[j] = max(first, max(second, max(third, fourth)));		 
+          }
+          for (k = 0; k < SIZE; k++)
+              previous[k] = current[k];
+      }
+      return current[n];
+  }
+#+end_src
+
+* 4
+** Knight Chase
+*** The Problem
+[[./dmoj_ccc99s4.png]]
+
+[[./sample_input_output.png]]
+*** Moving Optimally
+If we had an algorithm to determine the minimum number of moves that
+the knight can take from its starting point to some destiantion, then
+we could determine the number of knight moves required to get to each
+pawn location and, if the knight can get there at the same time as the
+pawn, then the knight wins. The same strategy can be use with respect
+to stalemates. How to design such an algorithm?
+
+An helpful idea: the knight starting point is reachable in zero
+moves. From there we can calculate the sqaures reachable with one
+move. Given those squares we can discover the squares that are
+reachable in two moves. And so on. This technique is called
+/breadth-first-search/ (BFS).
+
+**** Implementing BFS
+To represent a position on the board:
+#+begin_src C
+  typedef struct position {
+      int row, col;
+  } position;
+#+end_src
+
+The board:
+#+begin_src C
+  #define MAX_ROWS 99
+  #define MAX_COLS 99
+  typedef int board[MAX_ROWS + 1][MAX_COLS + 1];
+#+end_src
+
+To hold the position we discover during the BFS
+#+begin_src C
+  typedef position positions[MAX_ROWS * MAX_COLS];
+#+end_src
+
+~find_distance~ will be our implementation of the BFS. It is a
+function that takes the starting location of the knight (~knight_row~
+and ~knight_col~), the desired destination (~dest_row~ and ~dest_col~)
+and the number of rows and columns in the board (~num_rows~,
+~num_cols~). It returns the minimum number of moves for the knight to
+go from the starting location to the destination. If there is no way
+to get to the destination it returns -1.
+
+There are two key arrays that drive the BFS:
+- ~cur_positions~: it holds the positions discovered from the current of
+  round of BFS.
+- ~new_positions~: it holds the positions discovered in the next round.
+
+#+begin_src C
+  int find_distance(int knight_row, int knight_col,
+                    int dest_row, int dest_col,
+                    int num_rows, int num_cols) {
+      positions cur_positions, new_positions;
+      int num_cur_positions, num_new_positions;
+      int i, j, from_row, from_col;
+      board min_moves;
+      for (i = 1; i <= num_rows; i++)
+          for (j = 1; j <= num_cols; j++)
+              min_moves[i][j] = -1;
+      min_moves[knight_row][knight_col] = 0;
+      cur_positions[0] = (position){knight_row, knight_col};
+      num_cur_positions = 1;
+
+      // Loop to discover new positions.
+      // Stop running when we discover zero positions.
+      while (num_cur_positions > 0) {
+          num_new_positions = 0;
+          for (i = 0; i < num_cur_positions; i++) {
+              from_row = cur_positions[i].row;
+              from_col = cur_positions[i].col;
+              if (from_row == dest_row && from_col == dest_col)
+                  return min_moves[dest_row][dest_col];
+
+              //for each position, (try to) add a position
+              add_position(from_row, from_col, from_row + 1, from_col + 2,
+                           num_rows, num_cols, new_positions,
+                           &num_new_positions, min_moves);
+              add_position(from_row, from_col, from_row + 1, from_col - 2,
+                           num_rows, num_cols, new_positions,
+                           &num_new_positions, min_moves);
+              add_position(from_row, from_col, from_row - 1, from_col + 2,
+                           num_rows, num_cols, new_positions,
+                           &num_new_positions, min_moves);
+              add_position(from_row, from_col, from_row - 1, from_col - 2,
+                           num_rows, num_cols, new_positions,
+                           &num_new_positions, min_moves);
+              add_position(from_row, from_col, from_row + 2, from_col + 1,
+                           num_rows, num_cols, new_positions,
+                           &num_new_positions, min_moves);
+              add_position(from_row, from_col, from_row + 2, from_col - 1,
+                           num_rows, num_cols, new_positions,
+                           &num_new_positions, min_moves);
+              add_position(from_row, from_col, from_row - 2, from_col + 1,
+                           num_rows, num_cols, new_positions,
+                           &num_new_positions, min_moves);
+              add_position(from_row, from_col, from_row - 2, from_col - 1,
+                           num_rows, num_cols, new_positions,
+                           &num_new_positions, min_moves);
+          }
+
+          num_cur_positions = num_new_positions;
+          for (i = 0; i < num_cur_positions; i++)
+              cur_positions[i] = new_positions[i];
+      }
+      return -1;
+  }
+#+end_src
+
+Here is the ~add_position~ helper function:
+
+#+begin_src C
+  void add_position(int from_row, int from_col,
+                    int to_row, int to_col,
+                    int num_rows, int num_cols,
+                    positions new_positions, int *num_new_positions,
+                    board min_moves) {
+      struct position new_position;
+      if (to_row >= 1 && to_col >= 1 &&
+          to_row <= num_rows && to_col <= num_cols &&
+          min_moves[to_row][to_col] == -1) {
+          min_moves[to_row][to_col] = 1 + min_moves[from_row][from_col];
+          new_position = (position){to_row, to_col};
+          new_positions[*num_new_positions] = new_position;
+          (*num_new_positions)++;
+      }
+  }
+#+end_src
+
+*** Best Knight Outcome
+~solve~ takes the starting row and columns of the pawn, the starting
+row and column of the knight, and the numbers of rows and columns in
+the board. It prints one line of output corresponding to whether the
+knight wins, stalemates, or loses.
+
+#+begin_src C
+  void solve(int pawn_row, int pawn_col,
+             int knight_row, int knight_col,
+             int num_rows, int num_cols) {
+      int cur_pawn_row, num_moves, knight_takes;
+
+      cur_pawn_row = pawn_row;
+      num_moves = 0;
+      while (cur_pawn_row < num_rows) {
+          knight_takes = find_distance(knight_row, knight_col,
+                                       cur_pawn_row, pawn_col,
+                                       num_rows, num_cols);
+          if (knight_takes == num_moves) {
+              printf("Win in %d knight move(s).\n", num_moves);
+              return;
+          }
+          cur_pawn_row++;
+          num_moves++;
+      }
+
+      cur_pawn_row = pawn_row;
+      num_moves = 0;
+      while (cur_pawn_row < num_rows) {
+          knight_takes = find_distance(knight_row, knight_col,
+                                       cur_pawn_row + 1, pawn_col,
+                                       num_rows, num_cols);
+          if (knight_takes == num_moves) {
+              printf("Stalemate in %d knight move(s).\n", num_moves);
+              return;
+          }
+          cur_pawn_row++;
+          num_moves++;
+      }
+
+      printf("Loss in %d knight move(s).\n", num_rows - pawn_row - 1);
+  }
+#+end_src
+
+#+begin_src C
+  int main(void) {
+      int num_cases, i;
+      int num_rows, num_cols, pawn_row, pawn_col, knight_row, knight_col;
+      scanf("%d", &num_cases);
+      for (i = 0; i < num_cases; i++) {
+          scanf("%d%d", &num_rows, &num_cols);
+          scanf("%d%d", &pawn_row, &pawn_col);
+          scanf("%d%d", &knight_row, &knight_col);
+          sovle(pawn_row, pawn_col, knight_row, knight_col,
+                num_rows, num_cols);
+      }
+      return 0;
+  }
+#+end_src
+We have a solution! However... it's incorrect.
+
+Instead of
+#+begin_src C
+  if (knight_takes == num_moves) {
+#+end_src
+we need
+#+begin_src C
+  if (knight_takes >= 0 && num_moves >= knight_takes &&
+      (num_moves - knight_takes) % 2 == 0)
+#+end_src
+
+*** A Time Optimization
+Remove the following bit from ~find_distance~!
+#+begin_src C
+  if (from_row == dest_row && from_col == dest_col)
+      return min_moves[dest_row][dest_col];
+#+end_src
+** Rope Climb
+
+[[./rope_climb.png]]
+
+[[./rope_climb_input_output_sample.png]]
+
+
+We closely follow what we did for Knight Chase. Here, at it was there,
+we need to minimize the number of moves.
+
+The number of possible moves, here, depends on the Bob's current position.
+
+Any move that would cause Bob to land on itching powder will be
+disallowed in our BFS code.
+
+Given that /j/, the distance that Bob jumps up, is at most /h/, the
+minimum target height, we shouldn't let Bob get to height 2 x /h/ or
+higher.
+
+*** Implementing BFS
+We'll keep the name `board'...
+#+begin_src C
+  #define SIZE 1000000
+
+typedef int board[SIZE * 2];
+typedef int positions[SIZE * 2];
+#+end_src
+
+We will make one call of BFS in order to calculate the minimum number
+of moves to get from height zero to each valid position.
+
+#+begin_src C
+  void find_distance(int target_height, int jump_distance,
+                     int itching[], board min_moves) {
+      static positions cur_positions, new_positions;
+      int num_cur_positions, num_new_positions;
+      int i, j, from_height;
+      for (i = 0; i < target_height * 2; i++)
+          min_moves[i] = -1;
+      min_moves[0] = 0; // meaning: you can reach position 0 with 0 moves
+      cur_positions[0] = 0; // positions found in this ``round''
+      num_cur_positions = 1; // num of positions found in this ``round''
+
+      while (num_cur_positions > 0) { // while we discover new positions
+          num_new_positions = 0;
+          for (i = 0; i < num_cur_positions; i++) {
+              from_height = cur_positions[i];
+
+              //Bob has exactly one jump distance, so there's only one
+              //jump move to consider
+              add_position(from_height, from_height + jump_distance,
+                           target_height * 2 - 1,
+                           new_positions, &num_new_positions,
+                           itching, min_moves);
+              // To handle the falling down, we use a loop.
+              for (j = 0; j < from_height; j++)
+                  add_position(from_height, j,
+                               target_height * 2 - 1,
+                               new_positions, &num_new_positions,
+                               itching, min_moves);
+          }
+
+          num_cur_positions = num_new_positions;
+          for (i = 0; i < num_cur_positions; i++)
+              cur_positions[i] = new_positions[i];
+      }
+  }
+#+end_src
+
+~target_heigth~: The minimum height that Bob must reach (/h/).
+
+~jump_distance~: The distance that Bob can jump up (/j/).
+
+~itching~: the parameter that indicates whether itching is present. If
+itching[i] is 0, then there is no itching at height i; otherwise,
+there is.
+
+~min_moves~: the board in which we store the minimum number of moves
+to get to each position.
+
+Helper function:
+#+begin_src C
+  void add_position(int from_height, int to_height, int max_height,
+                    positions new_positions, int *num_new_positions,
+                    int itching[], board min_moves) {
+      if (to_height <= max_height && itching[to_height] == 0 &&
+          min_moves[to_height] == -1) {
+          min_moves[to_height] = 1 + min_moves[from_height];
+          new_positions[*num_new_positions] = to_height;
+          (*num_new_positions)++;
+      }
+  }
+#+end_src
+
+*** Finding the Best Height
+Now that we have the minimum number of moves to get to each position,
+we have to choose, among the candidate positions, the one that
+minimizes the number of moves:
+
+#+begin_src C
+  void solve(int target_height, board min_moves) {
+      int best = -1;
+      int i;
+
+      for (i = target_height; i < target_height * 2; i++)
+          if (min_moves[i] != -1 && (best == -1 || min_moves[i] < best))
+              best = min_moves[i];
+      printf("%d\n", best);
+  }
+#+end_src
+
+The only thing left is reading the input:
+#+begin_src C
+  int main(void) {
+      int target_height, jump_distance, num_itching_sections;
+      static int itching[SIZE * 2] = {0};
+      static board min_moves;
+      int i, j, itch_start, itch_end;
+      scanf("%d%d%d", &target_height, &jump_distance, &num_itching_sections);
+      for (i = 0; i < num_itching_sections; i++) {
+          scanf("%d%d", &itch_start, &itch_end);
+          for (j = itch_start; j <= itch_end; j++)
+              itching[j] = 1;
+      }
+      find_distance(target_height, jump_distance, itching, min_moves);
+      solve(target_height, min_moves);
+      return 0;
+  }
+#+end_src
+
+However, you should get a ``Time-Limit-Exceeded'' error with this code.
+
+*** Solution 2
+When using BFS we need to keep a couple of things in check: the number
+of times we call BFS and the number of edges in the graphs. We are
+already calling our BFS once, so... we need to reduce the number of
+edges in the graph.
+
+You can see where the problem lies by looking at Figure 4-5:
+
+[[./figure_4-5.png]]
+
+Fall edges grow quadratically...
+
+**** Changing the Moves
+We can't change the rules of the game Bob plays, but we can model that
+game using a different graph. We need a graph with less edges. Of
+course, the BFS on the new graph must produce the same answer as a BFS
+on the old graph.
+
+To cut down the number of fall edges we could allow only fall edges of
+one meter. For example, if we wanted to go from 5 to 1, then we would
+have to make four falls of one meter each, instead of one fall of 4
+meters.
+
+However, we can't let each of these mini falls count as a
+move. Falling of four meters should count as one move, not four
+moves. How do we do that? We can add to our model a further rope, so
+that we have rope 0 (the old one) and rope 1. If Bob wants to fall, he
+can jump to rope 1, fall as much as he wants, and then go back to rope
+0 (no more fall allowed directly on rope 0 and no jump up allowed on
+rope 1). Any move on rope 0 counts as one move, as usual. But, moves
+on rope 1 are free. Each occuers at a cost of 0 moves.
+
+This way we have doubled the number of nodes but we have drastically
+decreased the number of edges. For height /h/, we have about 4h
+edges. Linear!
+
+[[./figure_4-6.png]]
+
+This an example of a *weighted graph*, where each edge is given a
+weight or cost (here each edge either costs one move or zero moves).
+
+**** Adding Positions
+More technically, when Bob in on rope 0, we can say that Bob is in
+/state/ 0 and, when he is on rope 1, he is in /state/ 1.
+
+#+begin_src C
+  typedef struct position {
+      int height, state;
+  } position;
+
+  typedef int board[SIZE * 2][2];
+  typedef position positions[SIZE * 4];
+#+end_src
+
+Rather than starting from the ~find_distances~ function, we are gonna
+start from the ~add_position~ functionS. Instead of one ~add_position~
+function, we are going to have four, one for each type of move.
+
+#+begin_src C
+    void add_position_up(int from_height, int to_height, int max_height,
+                         positions pos, int *num_pos,
+                         int itching[], board min_moves) {
+        int distance = 1 + min_moves[from_height][0];
+        if (to_height <= max_height && itching[to_height] == 0 &&
+            (min_moves[to_height][0] == -1 ||
+             min_moves[to_height][0] > distance)) {
+            min_moves[to_height][0] = distance;
+            pos[*num_pos] = (position){to_height, 0};
+            (*num_pos)++;
+        }
+    }
+
+  void add_position_down(int from_height, int to_height,
+                         positions pos, int *num_pos,
+                         board min_moves) {
+          int distance = min_moves[from_height][1];
+          if (to_height >= 0 &&
+              (min_moves[to_height][1] == -1 ||
+               min_moves[to_height][1] > distance)) {
+              min_moves[to_height][1] = distance;
+              pos[*num_pos] = (positions){to_height, 1};
+              (*num_pos)++;
+          }
+  }
+
+  void add_position_01(int from_height,
+                       positions pos, int *num_pos,
+                       board min_moves) {
+      int distance = 1 + min_moves[from_height][0];
+      if (min_moves[from_height][1] == -1 ||
+          min_moves[from_height][1] > distance) {
+          min_moves[from_height][1] = distance;
+          pos[*num_pos] = (position){from_height, 1};
+          (*num_pos)++;
+      }
+  }
+
+  void add_position_10(int from_height,
+                       positions pos, int *num_pos,
+                       int itching[], board min_moves) {
+      int distance = min_moves[from_height][1];
+      if (itching[from_height] == 0 &&
+          (min_moves[from_height][0] == -1 ||
+           min_moves[from_height][0] > distance)) {
+          min_moves[from_height][0] = distance;
+          pos[*num_pos] = (position){from_height, 0};
+          (*num_pos)++;
+      }
+  }
+#+end_src
+
+**** BFS
+#+begin_src C
+  void find_distances(int target_height, int jump_distance,
+                      int itching[], board min_moves) {
+      static positions cur_positions, new_positions;
+      int num_cur_positions, num_new_positions;
+      int i, j, from_height, from_state;
+      for (i = 0; i < target_height * 2; i++)
+          for (j = 0; j < 2; j++)
+              min_moves[i][j] = -1;
+      min_moves[0][0] = 0;
+      cur_positions[0] = (position){0, 0};
+      num_cur_positions = 1;
+      while (num_cur_positions > 0) {
+          num_new_positions = 0;
+          for (i = 0; i < num_cur_positions; i++) {
+              from_height = cur_positions[i].height;
+              from_state = cur_positions[i].state;
+
+              if (from_state == 0) {
+                  add_position_up(from_height, from_height + jump_distance,
+                                  target_height * 2 - 1,
+                                  new_positions, &num_new_positions,
+                                  itching, min_moves);
+                  add_position_01(from_height, new_positions, &num_new_positions,
+                                  min_moves);
+              } else {
+                  add_position_down(from_height, from_height - 1,
+                                    cur_positions, &num_cur_positions, min_moves);
+                  add_position_10(from_height,
+                                  cur_positions, &num_cur_positions,
+                                  itching, min_moves);
+              }
+          }
+          num_cur_positions = num_new_positions;
+          for (i = 0; i < num_cur_positions; i++)
+              cur_positions[i] = new_positions[i];
+      }
+  }
+#+end_src
+
+Finally, replace `find_distance' with `find_distances' in the ~main~
+function, and update the ~solve~ function:
+#+begin_src C
+  void solve(int target_height, board min_moves) {
+      int best = -1;
+      int i;
+    
+      for (i = target_height; i < target_height * 2; i++)
+          if (min_moves[i][0] != -1 && (best == -1 || min_moves[i][0] < best))
+              best = min_moves[i][0];
+      printf("%d\n", best);
+  }
+#+end_src
+** Book Translation
+*** 
+[[./book_translation.png]]
+
+[[./book_translation_sample.png]]
+
+*** Building the Graph
+The goal is to minimize the number of translations, not to spend
+less. (However, if there are multiple ways to achieve a minimum number
+of translation, then we have to choose the cheapest one.) If we wanted
+to find the cheapest cost, then we would have had to use more
+powerfool tools (see Chapter 5).
+
+Each language will be associated with a number. English will be 0.
+
+To store the graph we will use an /adjacency list/: an array with one
+index per node, where each index stores a linked list of the edges
+involving that node. We use linked lists of edges, rather tahn arrays
+of edges, because we don't know in advance the number of edges for a
+given node.
+
+#+begin_src C
+  #define MAX_LANGS 101
+  #define WORD_LENGTH 16
+
+  typedef struct edge {
+      int to_lang, cost;
+      // there is no from_lang because we already know the from_lang
+      // based on which index of the adjacency list the edge is in
+      struct edge *next;
+  } edge;
+
+  typedef int board[MAX_LANGS];
+  typedef int positions[MAX_LANGS];
+#+end_src
+
+#+begin_src C
+  int main(void) {
+      static edge *adj_list[MAX_LANGS] = {NULL};
+      static char *lang_names[MAX_LANGS];
+      int i, num_targets, num_translators, cost, from_index, to_index;
+      char *from_lang, *to_lang;
+      edge *e;
+      static board min_costs;
+      scanf("%d%d\n", &num_targets, &num_translators);
+      lang_names[0] = "English";
+
+      for (i = 1; i <= num_targets; i++)
+          lang_names[i] = read_word(WORD_LENGTH);
+
+      // For each translator line, create two edge structs (one that
+      // represents the translation from lang1 to lang2 and one that
+      // represents the translation from lang2 to lang1) and add them to
+      // the right linked list in the adj_list
+      for (i = 0; i < num_translators; i++) {
+          from_lang = read_word(WORD_LENGTH);
+          to_lang = read_word(WORD_LENGTH);
+          scanf("%d\n", &cost);
+          from_index = find_lang(lang_names, from_lang);
+          to_index = find_lang(lang_names, to_lang);
+          e = malloc(sizeof(edge));
+          if (e == NULL) {
+              fprintf(stderr, "malloc error\n");
+              exit(1);
+          }
+          e->to_lang = to_index;
+          e->cost = cost;
+          e->next = adj_list[from_index];
+          adj_list[from_index] = e;
+          e = malloc(sizeof(edge));
+          if (e == NULL) {
+              fprintf(stderr, "malloc error\n");
+              exit(1);
+          }
+          e->to_lang = from_index;
+          e->cost = cost;
+          e->next = adj_list[to_index];
+          adj_list[to_index] = e;	
+      }
+      find_distances(adj_list, num_targets + 1, min_costs); // populate min_costs (``board'')
+      solve(num_targets + 1, min_costs);
+      return 0;
+  }
+#+end_src
+
+Helper functions:
+#+begin_src C
+  /*based on https://stackoverflow.com/questions/16870485 */
+  char *read_word(int size) {
+      char *str;
+      int ch;
+      int len = 0;
+      str = malloc(size);
+      if (str == NULL) {
+          fprintf(stderr, "malloc error\n");
+          exit(1);
+      }
+      while ((ch = getchar()) != EOF && (ch != ' ') && (ch != '\n')) {
+          str[len++] = ch;
+          if (len == size) {
+              size = size * 2;
+              str = realloc(str, size);
+              if (str == NULL) {
+                  fprintf(stderr, "realloc error\n");
+                  exit(1);
+              }
+          }
+      }
+      str[len] = '\0';
+      return str;
+  }
+
+  int find_lang(char *langs[], char *lang) {
+      int i = 0;
+      while (strcmp(langs[i], lang) != 0)
+          i++;
+      return i;
+  }
+#+end_src
+
+*** The BFS
+#+begin_src C
+  void add_position(int from_lang, int to_lang,
+                    positions new_positions, int *num_new_positions,
+                    board min_moves) {
+      if (min_moves[to_lang] == -1) {
+          min_moves[to_lang] = 1 + min_moves[from_lang];
+          new_positions[*num_new_positions] = to_lang;
+          (*num_new_positions)++;
+      }
+  }
+#+end_src
+
+#+begin_src C
+  void find_distances(edge *adj_list[], int num_langs, board min_costs) {
+      static board min_moves;
+      static positions cur_positions, new_positions;
+      int num_cur_positions, num_new_positions;
+      int i, from_lang, added_lang, best;
+      edge *e;
+      for (i = 0; i < num_langs; i++) {
+          min_moves[i] = -1;
+          min_costs[i] = -1;
+      }
+      min_moves[0] = 0;
+      cur_positions[0] = 0;
+      num_cur_positions = 1;
+      while (num_cur_positions > 0) { // while we discover new positions
+          num_new_positions = 0;
+          for (i = 0; i < num_cur_positions; i++) {
+              from_lang = cur_positions[i];
+              e = adj_list[from_lang];
+              while (e) {
+                  add_position(from_lang, e->to_lang,
+                               new_positions, &num_new_positions, min_moves);
+                  e = e->next;
+              }
+          }
+
+          for (i = 0; i < num_new_positions; i++) {
+              added_lang = new_positions[i];
+              e = adj_list[added_lang];
+              best = -1;
+              while (e) {
+                  if (min_moves[e->to_lang] + 1 == min_moves[added_lang] &&
+                      (best == -1 || e->cost < best))
+                      best = e->cost;
+                  e = e->next;
+              }
+              min_costs[added_lang] = best;
+          }
+          num_cur_positions = num_new_positions;
+          for (i = 0; i < num_cur_positions; i++)
+              cur_positions[i] = new_positions[i];
+      }
+  }
+#+end_src
+
+*** Total Cost
+#+begin_src C
+  void solve(int num_langs, board min_costs) {
+      int i, total = 0;
+      for (i = 1; i < num_langs; i++)
+          if (min_costs[i] == -1) {
+              printf("Impossible\n");
+              return;
+          } else {
+              total = total + min_costs[i];
+          }
+      printf("%d\n", total);
+  }
+#+end_src
+
+* 5
+** Mice Maze
+*** The Problem
+[[./Mice_maze.png]]
+
+[[./mice_maze_sample.png]]
+
+*** Moving On from BFS
+
+BFS helped us to find shortest paths. However, now, the focus now is
+not on edge counts, but on edge weights. BFS cannot help us here: we
+are not interest in getting to the exit cell traversing the lowest
+number of edges; we want to get to the exict cell spending the least
+number of time units.
+
+Consider figure 5-1...
+
+*** Shortest Paths in Weighted Graphs
+The algorith we'll use identifies the shortest path for nodes further
+and further away, in terms of total edge weight, from the starting
+node. (A BFS, instead, does the same, but in terms of edge count.)
+
+In this kind of problem, unlike the BFS cases, the shortest paths that
+we discover more recently are not necessarily those that will help us
+find the shortest path for a new node.
+
+For each node we mantain two pieces of information:
+- done :: A boolean. False means that we have't found the shortest
+  path for this node. True otherwise.
+- min_time :: The shortest path distance from the starting point, in
+  terms of total time, using a path whose other nodes are all
+  done. min_time can decrease when more nodes become done.
+
+The shortest path from node 1 to node 1 is 0.
+
+|------+-------+----------|
+| node | done  | min_time |
+|------+-------+----------|
+|    1 | false |        0 |
+|    2 | false |          |
+|    3 | false |          |
+|    4 | false |          |
+|    5 | false |          |
+
+We set node 1 to done, and then we set the min_time for each other
+node based on the edge weights from node 1:
+
+|------+-------+----------|
+| node | done  | min_time |
+|------+-------+----------|
+|    1 | true  |        0 |
+|    2 | false |       12 |
+|    3 | false |        6 |
+|    4 | false |       45 |
+|    5 | false |        7 |
+
+Given that... we know that 3 is done. But, if so, we can get to node 2
+in 8 time units. Therefore:
+
+|------+-------+----------|
+| node | done  | min_time |
+|------+-------+----------|
+|    1 | true  |        0 |
+|    2 | false |        8 |
+|    3 | true  |        6 |
+|    4 | false |       45 |
+|    5 | false |        7 |
+
+But now... we can set 5 as done.
+
+|------+-------+----------|
+| node | done  | min_time |
+|------+-------+----------|
+|    1 | done  |        0 |
+|    2 | false |        8 |
+|    3 | true  |        6 |
+|    4 | false |       45 |
+|    5 | true  |        7 |
+
+etc... Finally we get:
+
+|------+------+----------|
+| node | done | min_time |
+|------+------+----------|
+|    1 | done |        0 |
+|    2 | true |        8 |
+|    3 | true |        6 |
+|    4 | true |       17 |
+|    5 | true |        7 |
+
+We have used the so-called Dijkstra's algorithm, after Edsger
+W. Dijkstra. This is exactly what we need to solve Mice Maze. We shall
+read the input to build the graph and then implement the Dijkstra's
+algorithm.
+
+*** Building the Graph
+We'll use an adjacency list for representing the graph. Each edge
+struct has a cell to which it points to and the length of time
+required to walk the edge, and a next pointer.
+
+#+begin_src C
+  #define MAX_CELLS 100
+
+  typedef struct edge {
+      int to_cell, length;
+      struct edge *next;
+  } edge;
+#+end_src
+
+The main function read the graphs.
+
+#+begin_src C
+  int main(void) {
+      static edge *adj_list[MAX_CELLS + 1];
+      int num_cases, case_num, i;
+      int num_cells, exit_cell, time_limit, num_edges;
+      int from_cell, to_cell, length;
+      int total, min_time;
+      edge *e;
+
+      scanf("%d", &num_cases);
+      for (case_num = 1; case_num <= num_cases; case_num++) {
+          scanf("%d%d%d", &num_cells, &exit_cell, &time_limit);
+          scanf("%d", &num_edges);
+          for (i = 1; i <= num_cells; i++)
+              adj_list[i] = NULL;
+          for (i = 0; i < num_edges; i++) {
+              scanf("%d%d%d", &from_cell, &to_cell, &length);
+              e = malloc(sizeof(edge));
+              if (e == NULL) {
+                  fprintf(stderr, "mzzalloc error\n");
+                  exit(1);
+              }
+              e->to_cell = to_cell;
+              e->length = length;
+              e->nexth = adj_list[from_cell];
+              adj_list[from_cell] = e; // The graph is indirected, so we
+                                       // don't add and edge at
+                                       // adj_list[to_cell] to from_cell
+          }
+
+          total = 0;
+          for (i = 1; i <= num_cells; i++) {
+              min_time = find_time(adj_list, num_cells, i, exit_cell); // Dijkstra's
+                                                                       // algorithm
+                                                                       // implementation
+              if (min_time >= 0 && min_time <= time_limit) {
+                  total++;
+              }
+          }
+          printf("%d\n", total);
+          if (case_num < num_cases)
+              pritnf("\n");
+      }
+      return 0;
+  }
+#+end_src
+
+*** Implementing Dijkstra's Algorithm
+The first implementation of the algorithm we will write is gonna
+calculate the shortest path time from the starting cell to all other
+cells, even if we only need the shortest path time to the exit
+cell. Way to optimize this algorithm will be shown later.
+
+#+begin_src C
+  int find_time(edge *adj_list[], int num_cells,
+                int from_cell, int exit_cell) {
+      static int done[MAX_CELLS + 1];//store booleans that mean done (1)
+                                     //or undone (0)
+      static int min_times[MAX_CELLS + 1]; //store shortest paths
+                                           //distances from the starting
+                                           //cell to each cell
+      int i, j, found;
+      // `found` tracks whether a cell can be a new cell can be
+      // discovered by Dijkstra's algorithm
+      int min_time, min_time_index, old_time;
+      edge *e;
+
+      for (i = 1; i <= num_cells; i++) {
+          done[i] = 0;
+          min_times[i] = -1;
+      }
+      min_times[from_cell] = 0;
+
+      for (i = 0; i < num_cells; i++) {
+          min_time = -1;
+          found = 0;
+          // Inner loop that leaves `min_time_index` with the index of
+          // the cell whose shortest path has been found `min_time` with
+          // the shortest path time itself.
+          for (j = 1; j <= num_cells; j++) {
+              if (!done[j] && min_times[j] >= 0) {
+                  if (min_time == -1 || min_times[j] < min_time) {
+                      min_time = min_times[j];
+                      min_time_index = j;
+                      found = 1;
+                  }		    
+              }
+          }
+          if (!found)
+              break;
+          done[min_time_index] = 1;
+
+          e = adj_list[min_time_index];
+          while (e) {
+              old_time = min_times[e->to_cell];
+              if (old_time == -1 || old_time > min_time + e->length)
+                  min_times[e->to_cell] = min_time + e->length;
+              e = e->next;
+          }
+      }
+      return min_times[exit_cell];
+  }
+#+end_src
+
+* 6
+** Feeding Ants
+*** The problem
+DMOJ coci14c4p4
+*** Reading the Input
+#+begin_src C
+    #include <stdio.h>
+    #include <stdlib.h>
+    #include <string.h>
+
+    #define MAX_NODES 1000
+
+    typedef struct edge {
+        int to_node, percentage, superpipe;
+        struct edge *next;
+    } edge;
+
+  int main(void) {
+      static edge *adj_list[MAX_NODES + 1] = {NULL};
+      static int liquid_needed[MAX_NODES + 1];
+      int num_nodes, i;
+      int from_node, to_node, percentage, superpipe;
+      edge *e;
+      scanf("%d", &num_nodes);
+
+      for (i = 0; i < num_nodes - 1; i++) {
+          scanf("%d%d%d%d", &from_node, &to_node, &percentage, &superpipe);
+          e = malloc(sizeof(edge));
+          if (e == NULL) {
+              fprintf(stderr, "malloc error\n");
+              exit(1);
+          }
+          e->to_node = to_node;
+          e->percentage = percentage;
+          e->superpipe = superpipe;
+          e->next = adj_list[from_node];
+          adj_list[from_node] = e;
+      }
+
+      for (i = 1; i <= num_nodes; i++)
+          scanf("%d", &liquid_needed[i]);
+      solve(adj_list, liquid_needed);
+      return 0;
+  }
+#+end_src
+
+*** Testing Feasibility
+The function ~can_feed~ checks whether a certain amount of liquid is a
+feasible solution:
+#+begin_src C
+  int can_feed(int node, double liquid,
+               edge *adj_list[], int liquid_needed[]) {
+      edge *e;
+      int ok;
+      double down_pipe;
+      if (liquid_needed[node] != -1)
+          return liquid >= liquid_needed[node];
+      e = adj_list[node];
+      ok = 1;
+      while (e && ok) {
+          down_pipe = liquid * e->percentage / 100;
+          if (e->superpipe)
+              down_pipe = down_pipe * down_pipe;
+          if (!can_feed(e->to_node, down_pipe, adj_list, liquid_needed))
+              ok = 0;
+          e = e->next;
+      }
+      return ok;
+  }
+#+end_src
+
+*** Searching for a Solution
+To look for a solution we will use binary search:
+#+begin_src C
+#define HIGHEST 2000000000
+void solve(edge *adj_list[], int liquid_needed[]) {
+    double low, high, mid;
+    low = 0;
+    high = HIGHEST;
+    while (high - low > 0.00001) {
+	mid = (low + high) / 2;
+	if (can_feed(1, mid, adj_list, liquid_needed))
+	    high = mid;
+	else
+	    low = mid;
+    }
+    printf("%.4lf\n", high);
+}
+#+end_src
+
+** River Jump
+*** The Problem
+[...]
+*** A Greedy Idea
+What about ``find[ing] the two rocks that are closest together and
+remove the one that's closest to its other neighbor rock, and
+reapeat''?
+
+Pretty intuitive, but it doesn't work...
+*** Testing Feasibility
+Is it possible to achieve a minimum gap of at least /d/?
+
+We can answer by following this rule: start from 0 and, in order,
+remove each rock that is too close to the previous one. Remove the
+rightmost one if it's too close to the end of the river. Does that
+suffice?
+
+#+begin_src C
+  int can_make_min_distance(int distance, int rocks[], int num_rocks,
+                            int num_remove, in length) {
+      int i;
+      int removed = 0, prev_rock_location = 0, cur_rock_location;
+      if (length < distance)
+          return 0;
+      for (i = 0; i < num_rocks; i++) {
+          cur_rock_location = rocks[i];
+          if (cur_rock_location - prev_rock_location < distance)
+              removed++;
+          else
+              prev_rock_location = cur_rock_location;
+      }
+      if (length - prev_rock_location < distance)
+          removed++;
+      return removed <= num_remove;
+  }
+#+end_src
+
+How do we know this greedy algorithm is correct? [...]
+
+Now that we know how to check /feasibility/, we can use binary search
+to find /optimality/!
+
+*** Searching for a Solution
+#+begin_src C
+  void solve(int rocks[], int num_rocks,
+             int num_remove, int length) {
+      int low, high, mid;
+      low = 0;
+      high = length + 1;
+      while (high - low > 1) {
+          mid = (low + high) / 2;
+          if (can_make_min_distance(mid, rocks, num_rocks, num_remove, length))
+              low = mid;
+          else
+              high = mid;
+      }
+      printf("%d\n", low);
+  }
+#+end_src
+
+*** Reading the input
+#+begin_src C
+  #define MAX_ROCKS 50000
+
+  int compare(const void *v1, const void *v2) {
+      int num1 = *(const int *)v1;
+      int num2 = *(const int *)v2;
+      return num1 - num2;
+  }
+
+  int main(void) {
+      static int rocks[MAX_ROCKS];
+      int length, num_rocks, num_remove, i;
+      scanf("%d%d%d", &length, &num_rocks, &num_remove);
+      for (i = 0; i < num_rocks; i++)
+          scanf("%d", &rocks[i]);
+      qsort(rocks, num_rocks, sizeof(int), compare);
+      solve(rocks, num_rocks, num_remove, length);
+      return 0;
+  }
+#+end_src
+
+** Living Quality
+In order to check feasibility, in Feeding Ants, we have used a
+recursive traversal of a tree and, in River Jump, we have used a
+greedy algorithm. Now, to efficiently check feasibility we will use
+dynamic programming.
+
+This is DMOJ ioi10p3.
+
+*** Sorting Every Rectangle
+#+begin_src C
+#define MAX_ROWS 3001
+#define MAX_COLS 3001
+
+typedef int board[MAX_ROWS][MAX_COLS];
+#+end_src
+
+How to determine the median quality rank of a rectangle, if we are given
+the top-left and the bottom-right coordinates?
+
+We can: sort the quality ranks present in the rectangle from lowest to
+highest, and then pick out the one in the middle.
+
+Sorting gives us an algorith with O(n log n). (Better algorithm
+exist. In particular, there a O(n) algorithm exists for finding the
+median...)
+
+#+begin_src C
+  int median(int top_row, int left_col, int bottom_row, int right_col,
+      board q) {
+      static int cur_rectangle[MAX_ROWS * MAX_COLS];
+      int i, j, num_cur_rectangle;
+      num_cur_rectangle = 0;
+      for (i = top_row; i <= bottom_row; i++)
+          for (j = left_col; j <= right_col; j++) {
+              cur_rectangle[num_cur_rectangle] = q[i][j];
+              num_cur_rectangle++;
+          }
+      qsort(cur_rectangle, num_cur_rectangle, sizeof(int), compare);
+      return cur_rectangle[num_cur_rectangle / 2];
+  }
+#+end_src
+
+Now that we are able to calculate the median of a rectangle we can loop
+through each candidate rectangle and return the smallest median.
+
+#+begin_src C
+  int rectangle (int r, int c, int h, int w, board q) {
+      int top_row, left_col, bottom_row, right_col;
+      int best = r * c + 1;
+      int result;
+      for (top_row = 0; top_row < r - h + 1; top_row++)
+          for (left_col = 0; left_col < c - w + 1; left_col++) {
+              bottom_row = top_row + h - 1;
+              right_col = left_col + w - 1;
+              result = median(top_row, left_col, bottom_row, right_col, q);
+              if (result < best)
+                  best = result;
+          }
+      return best;
+  }
+#+end_src
+
+This works, but... it's too slow. There are at the least two things we
+can improve. At the moment, we sort each rectangle. That can be
+disposed by binary search. Moreover, we create the ~cur_rectangle~
+array from scratch for each rectangle. That can be disposed by
+dynamic-programming!
+
+*** Binary Search
+Low and everything smaller than ~low~ are infeasible; ~high~ and
+everything larger than ~high~ are feasible.
+
+#+begin_src C
+  int rectangle(int r, int c, int h, int w, board q) {
+      int low, high, mid;
+      low = 0;
+      high = r * c + 1;
+      while (high - low > 1) {
+          mid = (low + high) / 2;
+          if (can_make_quality(mid, r, c, h, w, q))
+              high = mid;
+          else
+              low = mid;
+      }
+      return high;
+  }
+#+end_src
+
+Now we need an implementation of ~can_make_quality~ to test feasibility.
+
+*** Testing Feasibility
+There is no need to sort... For each rectangle, we can replace each
+value of it by -1 if it's less than or equal to ~quality~ and by 1 if
+it's greater than it. We add all up, and if we get 0 or less we know
+that the rectangle has a median rank or ~quality~ or less.
+#+begin_src C
+  int can_make_quality(int quality, int r, int c, int h, int w, board q) {
+      static int zero_one[MAX_ROWS][MAX_COLS];
+      int i, j;
+      int top_row, left_col, bottom_row, right_col;
+      int total;
+
+      for (i = 0; i < r; i++)
+          for(j = 0; j < c; j++)
+              if (q[i][j] <= quality)
+                  q[i][j] = -1;
+              else
+                  q[i][j] = 1;
+    
+      for (top_row = 0; top_row < r - h + 1; top_row++)
+          for (left_col = 0; left_col < c - w + 1; left_col++) {
+              bottom_row = top_row + h - 1;
+              right_col = left_col + w -1;
+              total = 0;
+              for (i = top_row; i <= bottom_row; i++)
+                  for (j = left_col; j <= right_col; j++)
+                      total = total + zero_one[i][j];
+              if (total <= 0)
+                  return 1;
+          }
+      return 0;
+  }
+#+end_src
+
+That works; and we are not sorting anymore. But there are a bunch of
+nested loops (four)!
+
+*** Testing Feasibility More Quickly
+#+begin_src C
+  int can_make_quality(int quality, int r, int c, int h, int w, board q) {
+      static int zero_one[MAX_ROWS][MAX_COLS];
+      static int sum[MAX_ROWS + 1][MAX_COLS + 1];
+      int i, j;
+      int top_row, left_col, bottom_row, right_col;
+      int total;
+
+    
+      for (i = 0; i < r; i++)
+          for(j = 0; j < c; j++)
+              if (q[i][j] <= quality)
+                  q[i][j] = -1;
+              else
+                  q[i][j] = 1;
+
+      for (i = 0; i <= c; i++)
+          sum[0][i] = 0;
+      for (i = 0; i <= r; i++)
+          sum[i][0] = 0;
+      for (i = 1;i <= r; i++)
+          for (j = 1; j <= c; j++)
+              sum[i][j] = zero_one[i-1][j-1] + sum[i-1][j] +
+                  sum[i][j-1] - sum[i-1][j-1];
+
+      for (top_row = 1; top_row <= r - h + 1; top_row++)
+          for (left_col = 1; left_col <= c - w + 1; left_col++) {
+              bottom_row = top_row + h - 1;
+              right_col = left_col + w - 1;
+              total = sum[bottom_row][right_col] - sum[top_row-1][right_col] -
+                  sum[bottom_row][left_col-1] + sum[top_row-1][left_col-1];
+              if (total <= 0)
+                  return 1;
+          }
+      return 0;
+  }
+#+end_src
+
+This is an O(m^2 log m) alrorigthm. Enough to pass all the test cases.
+
+** Cave Doors
+
+DMOJ problem ioi13p4.
+
+This is the only case in which we won't use binary search to find an
+optimal solution...
+
+We have to write this function:
+#+begin_src C
+  void explore(int n)
+#+end_src
+Where ~n~ is the number of doors (and switches).
+
+~explore~ will have to call two function provided by the judge
+
+#+begin_src C
+int tryCombination(int switch_positions[])
+#+end_src
+
+#+begin_src C
+void answer(int switch_positions[], int door_for_switch[])
+#+end_src
+
+*** Solving a SubTask
+We are going first to solve a subtask. In the first substak each
+switch ~i~ is a associated with door number ~i~. We only need to
+discover the correct position, up (0) or down (1), of each switch.
+This is the code for that subtask:
+#+begin_src C
+  void exploreCave(int n) {
+      int switch_positions[n], door_for_switch[n];
+      int i, result;
+      for (i = 0; i < n; i++) {
+          switch_positions[i] = 0;
+          door_for_switch[i] = i;
+      }
+    
+      for (i = 0; i < n; i++) {
+          result = tryCombination(switch_positions);
+          if (result == i) // door i is closed
+              switch_positions[i] = 1;
+      }
+      answer(switch_positions, door_for_switch);
+  }
+#+end_src
+
+*** Using a Linear Search
+The solution above of subtask 1 focuses on door 0, opens it or closes
+it if necessary, and never messes with its switch again.
+
+Now, though, we don't know which switch controls the current
+door. What can we do? 
+
+We can close door foo and then search through the switches its
+associated switch!
+
+#+begin_src C
+  void exploreCave(int n) {
+      int switch_positions[n], door_for_switch[n];
+      int i;
+      for (i = 0; i < n; i++)
+          door_for_switch[i] = -1; //indicate that the door for each
+                                   //switch is unkown
+
+      for (i = 0; i < n; i++)
+          set_a_switch(i, switch_positions, door_for_switch, n);
+
+      answer(switch_positions, door_for_switch);
+  }
+#+end_src
+
+We are using the helper function ~set_a_switch~ to search through the
+switches to determine wich is associated with a certain door:
+#+begin_src C
+    void set_a_switch(int door, int switch_positions[],
+                    int door_for_switch[], int n) {
+      int i, result;
+      int found = 0;
+
+      // loop through the switches
+      for (i = 0; i < n; i++)
+          // set to 0 those switches that are not associated with any
+          // door
+          if (door_for_switch[i] == -1)
+              switch_positions[i] = 0;
+    
+      result = tryCombination(switch_positions);
+      if (result != door) { // if door is open
+          // let's close it
+          for (i = 0; i < n; i++)
+              if (door_for_switch[i] = -1)
+                  switch_positions[i] = 1;
+      }			      
+
+      // now that the door is closed, let's check try each switch to
+      // open it
+      i = 0;
+      while (!found) {
+          if (door_for_switch[i] == -1)
+              switch_positions[i] = 1 - switch_positions[i];
+          result = tryCombination(switch_positions);
+          if (result != door)
+              found = 1;
+          else
+              i++;
+      }
+      door_for_switch[i] = door;
+    }
+#+end_src
+
+With ~set_a_switch~ we are performing a linear search. This means that
+a single door could take up to 5000 calls of ~tryCombination~. But we
+are allowed to call ~tryCombination~ up to 70000 times and we could
+have 5000 doors!
+
+* 7
+** Supermarket Promotion
+*** The problem
+SPOJ problem PRO.
+
+[[./problem.png]]
+
+*** Solution 1: Maximum and Minimum in an Array
+We can simply store new receipt into an array. Instead of removing the
+receipts from the arre, to indicate whether one receipt has been
+already used in the promotion we can use a ~used~ flag.
+
+#+begin_src C
+  #define MAX_RECEIPTS 1000000
+  #define MAX_COST 1000000
+
+  typedef struct receipt {
+      int cost;
+      int used;
+  } receipt;
+#+end_src
+
+Let's write two helper functions to identify and remove the maximum
+receipt cost and the minimum receipt cost:
+
+#+begin_src C
+  int extract_max(receipt receipts[], int num_receipts) {
+      int max, max_index, i;
+      max = -1;
+      for (i = 0; i < num_receipts; i++)
+          if (!receipts[i].used && receipts[i].cost > max) {
+              max_index = i;
+              max = receipts[i].cost;
+          }
+      receipts[max_index].used = 1;
+      return max;
+  }
+
+  int extract_min(receipt receipts[], int num_receipts) {
+      int min, min_index, i;
+      min = MAX_COST + 1;
+      for (i = 0; i < num_receipts; i++)
+          if (!receipts[i].used && receipts[i].cost < min) {
+              min_index = i;
+              min = receipts[i].cost;
+          }
+      receipts[min_index].used = 1;
+      return min;
+  }
+#+end_src
+
+With this we can already write the main function and solve the
+problem.
+
+#+begin_src C
+  int main(void) {
+      static struct receipt receipts[MAX_RECEIPTS];
+      int num_days, num_receipts_today;
+      int num_receipts = 0;
+      long long total_prizes = 0;
+      int i, j, max, min;
+      scanf("%d", &num_days);
+
+      for (i = 0; i < num_days; i++) {
+          scanf("%d", &num_receipts_today);
+          for (j = 0; j < num_receipts_today; j++) {
+              scanf("%d", &receipts[num_receipts].cost);
+              receipts[num_receipts].used = 0;
+              num_receipts++;
+          }
+          max = extract_max(receipts, num_receipts);
+          min = extract_min(receipts, num_receipts);
+          total_prizes += max - min;
+      }
+      printf("%lld\n", total_prizes);
+      return 0;
+  }
+#+end_src
+
+This solution is correct. But it is too slow...
+
+Sorting is not the right way to go.
+
+*** Max-Heaps
+One way to go is using heaps. Max-heaps are data structures that allow to
+quickly extract the maximum. Min-heaps, instead, allow to quickly
+extract the min.
+
+
+#+begin_src C
+typedef struct heap_element {
+    int receipt_index;
+    int cost;
+} heap_element;
+
+void max_heap_insert(heap_element heap[], int *num_heap,
+		     int receipt_index, int cost) {
+    int i;
+    heap_element temp;
+    (*num_heap)++;
+    heap[*num_heap] = (heap_element){receipt_index, cost};
+    i = *num_heap;
+    while (i > 1 && heap[i].cost > heap[i / 2].cost) {
+	temp = heap[i];
+	heap[i] = heap[i / 2];
+	heap[i / 2] = temp;
+	i = i / 2;
+    }
+}
+
+heap_element max_heap_extract(heap_element heap[], int *num_heap) {
+    heap_element remove, temp;
+    int i, child;
+    remove = heap[1];
+    heap[1] = heap[*num_heap];
+    (*num_heap)--;
+    i = 1;
+    while (i * 2 <= *num_heap) {
+	child = i * 2;
+	if (child < *num_heap && heap[child + 1].cost > heap[child].cost)
+	    child++;
+	if (heap[child].cost > heap[i].cost) {
+	    temp = heap[i];
+	    heap[i] = heap[child];
+	    heap[child] = temp;
+	    i = child;
+	} else
+	    break;
+    }
+    return remove;
+}
+#+end_src
+
+*** Min-Heaps
+#+begin_src C
+void min_heap_insert(heap_element heap[], int *num_heap,
+		     int receipt_index, int cost) {
+    int i;
+    heap_element temp;
+    (*num_heap)++;
+    heap[*num_heap] = (heap_element){receipt_index, cost};
+    i = *num_heap;
+    while (i > 1 && heap[i].cost < heap[i / 2].cost) {
+	temp = heap[i];
+	heap[i] = heap[i /2];
+	heap[i / 2] = temp;
+	i = i /2;
+    }
+}
+
+heap_element min_heap_extract(heap_element heap[], int *num_heap) {
+    heap_element remove, temp;
+    int i, child;
+    remove = heap[1];
+    heap[1] = heap[*num_heap];
+    (*num_heap)--;
+    i = 1;
+    while (i * 2 <= *num_heap) {
+	child = i * 2;
+	if (child < *num_heap && heap[child + 1].cost < heap[child].cost)
+	    child++;
+	if (heap[child].cost < heap[i].cost) {
+	    temp = heap[i];
+	    heap[i] = heap[child];
+	    heap[child] = temp;
+	    i = child;
+	} else
+	    break
+    }
+    return remove;
+}
+#+end_src
+
+*** Solution using heaps
+#+begin_src C
+  int main(void) {
+      static int used[MAX_RECEIPTS] = {0};
+      static heap_element min_heap[MAX_RECEIPTS + 1];
+      static heap_element max_heap[MAX_RECEIPTS + 1];
+      int num_days, receipt_index_today;
+      int receipt_index = 0;
+      long long total_prizes = 0;
+      int i, j, cost;
+      int min_num_heap = 0, max_num_heap = 0;
+      heap_element min_element, max_element;
+      scanf("%d", &num_days);
+
+      for (i = 0; i < num_days; i++) {
+          scanf("%d", &receipt_index_today);
+          for (j = 0; j < receipt_index_today; j++) {
+              scanf("%d", &cost);
+              max_heap_insert(max_heap, &max_num_heap, receipt_index, cost);
+              min_heap_insert(min_heap, &min_num_heap, receipt_index, cost);
+              receipt_index++;
+          }
+      }
+
+      max_element = max_heap_extract(max_heap, &max_num_heap);
+      while(used[max_element.receipt_index])
+          max_element = max_heap_extract(max_heap, &max_num_heap);
+      used[max_element.receipt_index] = 1;
+
+      min_element = min_heap_extract(min_heap, &min_num_heap);
+      while (used[min_element.receipt_index])
+          min_element = min_heap_extract(min_heap, &min_num_heap);
+      used[min_element.receipt_index] = 1;
+      total_prizes += max_element.cost - min_element.cost;
+  }
+#+end_src
+
+** Building Treaps
+A treap is a binary tree where each node has both a label and a
+priority The labels must satisfy the BST property and the priorities
+must satisfy the max-heap property.
+
+*** The Problem
+POJ 1785
+
+*** Solution 1: Recursion
+#+begin_src C
+  #define MAX_NODES 50000
+  #define LABEL_LENGTH 16
+
+  typedef struct treap_node {
+      char * label;
+      int priority;
+  } treap_node;
+#+end_src
+
+#+begin_src C
+  int main(void) {
+      static treap_node treap_nodes[MAX_NODES];
+      int num_nodes, i;
+      scanf("%d ", &num_nodes);
+      while(num_nodes > 0) {
+          for (i = 0; i < num_nodes; i++) {
+              treap_nodes[i].label = read_label(LABEL_LENGTH);
+              scanf("%d ", &treap_nodes[i].priority);
+          }
+          qsort(treap_nodes, num_nodes, sizeof(treap_node), compare);
+          solve(treap_nodes, 0, num_nodes - 1);
+          printf("\n");
+          scanf("%d ", &num_nodes);
+      }
+      return 0;
+  }
+#+end_src
+
+#+begin_src C
+/*based on https://stackoverflow.com/questions/16870485 */
+char *read_label(int size) {
+    char *str;
+    int ch;
+    int len = 0;
+    str = malloc(size);
+    if (str == NULL) {
+	fprintf(stderr, "malloc error\n");
+	exit(1);
+    }
+    ¶ while ((ch = getchar()) != EOF && (ch != '/')) {
+	str[len++] = ch;
+	if (len == size) {
+	    size = size * 2;
+	    str = realloc(str, size);
+	    if (str == NULL) {
+		fprintf(stderr, "realloc error\n");
+		exit(1);
+	    }
+	}
+    }
+    str[len] = '\0';
+    return str;
+}
+#+end_src
+
+#+begin_src C
+  int compare(const void *v1, const void *v2) {
+      const treap_node *n1 = v1;
+      const treap_node *n2 = v2;
+      return strcmp(n1->label, n2->label);
+  }
+#+end_src
+
+#+begin_src C
+  int max_priority_index(treap_node treap_nodes[], int left, int right) {
+      int i;
+      int max_index = left;
+      for (i = left + 1; i <= right; i++)
+          if (treap_nodes[i].priority > treap_nodes[max_index].priority)
+              max_index = i;
+      return max_index;
+  }
+#+end_src
+
+#+begin_src C
+  void solve(treap_node treap_nodes[], int left, int right) {
+      int root_index;
+      treap_node root;
+      if (left > right)
+          return;
+      root_index = max_priority_index(treap_nodes, left, right);
+      root = treap_nodes[root_index];
+      printf("(");
+      solve(treap_nodes, left, root_index - 1);
+      printf("%s/%d", root.label, root.priority);
+      solve(treap_nodes, root_index + 1, right);
+      printf(")");
+  }
+#+end_src
+
+*** Segment trees
+#+begin_quote
+A segment tree is a full binary tree where each node is associated
+with a particular segment of an underlying array.
+#+end_quote
+
+
