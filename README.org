@@ -333,6 +333,112 @@ first move on the left, then on the right, then left, then right, and
 so on.)
 
 ** Spelling Check: Deleting a Letter
+*** The Problem
+Codeforces problem 39J (Spelling Check). Sometimes a hash tables looks
+like the way to go, but it would actually overcomplicate things.
+
+You are given two words. The first one of them is one character longer
+than the second one. You have to calculate the number of ways in which
+you can remove one character from the first string in order to get the
+second string. Time limit: 2 seconds.
+*** Input
+Two lines. The first string is on the first line. The second string is
+on the second line. A string can be up to one million characters.
+*** Output
+If there is no ``solution'', then output 0. Otherwise, output one line
+with the number of possible ``solutions'', and another line with a
+space-separated list of the indices of the characters that can be
+removed from the first string to get the second string. (indexing must
+start from 1 and not 0)
+
+For example, with the following input:
+#+begin_src
+abcdxxxef
+abcdxxef
+#+end_src
+we would need to output the following:
+#+begin_src
+3
+5 6 7
+#+end_src
+*** Using Hash Tables
+Here is a possible strategy using hash tables. Insert into a hash
+table every possible prefix and suffix of the second string. Then
+remove a char from the first string, which is equivalent to split it
+into a prefix and a suffix, and then check whether those prefix and
+suffix or both present in the hash table. If they are, then you have
+found a way to get the second string by removing one char from the
+first string. If they are not, they you know that's not a way to do
+that and can pass to check other possible splits.
+
+The problem with this method is that the strings can be up to a
+million character long. Storing all those prefixes and suffixes into a
+hash table would take too much memory. You can use pointers (that
+point to the start of indexes and suffixed) instead, but we'd still
+have to compare those extra-long strings when performing a search on
+the hash table. Comparing such long strings takes a lot of time.
+There are also other concerns...
+*** An Ad Hoc Solution
+Notice that:
+- If the lenght of the longest common preifx is p, then the only
+  characters that can be deleted are those with indices of <= p + 1.
+- Moreover, if the length of the longest common suffix is S, then we
+  should consider only indices that are >= n - s, where n is the
+  length of the first string.
+
+So, the indices that interest us go from n-s to p+1. If that range is
+empty, the we will output 0. If it's not, then we can loop over the
+indices and print them to produce the space-separated list.
+
+Here is the way we can calculate the length of the longest common
+prefix (we use 1 as the starting index of the strings):
+#+begin_src C
+  int prefix_length(char s1[], char s2[]) {
+      int i = 1;
+      while (s1[i] == s2[i])
+          i++;
+      return i - 1;
+  }
+#+end_src
+
+Here is how we can calculate the length of longest common suffix:
+#+begin_src C
+  int suffix_length(char s1[], char s2[], int len) {
+      int i = len;
+      while (i >= 2 && s1[i] == s2[i-1])
+          i--;
+      return len - i;
+  }
+#+end_src
+
+We can now write the main function:
+#+begin_src C
+  #define SIZE 1000000
+
+  int main(void) {
+      static char s1[SIZE + 2], s2[SIZE + 2];
+      int len, prefix, suffix, total;
+      gets(&s1[1]);
+      gets(&s2[1]);
+
+      len = strlen(&s1[1]);
+      prefix = prefix_length(s1, s2);
+      suffix = suffix_length(s1, s2, len);
+      total = (prefix + 1) - (len - suffix) + 1;
+      if (total < 0)
+          total = 0;
+
+      printf("%d\n", total);
+      for (int i = 0; i < total; i++) {
+          printf("%d", i + len - suffix);
+          if (i < total - 1)
+              printf(" ");
+          else
+              printf("\n");
+      }
+      return 0;
+  }
+#+end_src
 
 * 2
 ** Descendant Distance
