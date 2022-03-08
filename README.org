@@ -441,6 +441,194 @@ We can now write the main function:
 #+end_src
 
 * 2
+** Halloween Haul
+*** The Problem
+You are given some /full binary trees/ each of which represents a
+neighborhood. The /leafs/ represents houses and they hold candy (in
+terms of a numeric value). The non-leaf nodes represents
+intersections, and the edges represents streets.
+*** Input
+Five lines. Each line is at most of 255 characters and represents a
+neighborhood. (Later we'll see how they can represent a neighborhood)
+*** Output
+Five lines corresponding to the five lines of input. Each contains two
+integers: one for the minimum number of streets walked to obtain all
+the candy and one for the total amount of candy obtained.
+*** Representing Binary Trees
+#+begin_src C
+  typedef struct node {
+      int candy;
+      struct node *left, *right;
+  }
+#+end_src
+
+As an example, we can create the node representing a house holding
+candy of value 4 in the following way:
+#+begin_src C
+  node *four = malloc(sizeof(node));
+  four->candy = 4;
+  four->left = NULL;
+  four->right = NULL;
+#+end_src
+
+Similar example: the house holdingy candy of value 9:
+#+begin_src C
+  node *four = malloc(sizeof(node));
+  four->candy = 4;
+  four->left = NULL;
+  four->right = NULL;
+#+end_src
+
+Another example: a non-house node (node B) having the house with the 4
+candy value as a left child and the house with the 9 candy value as a
+right child:
+#+begin_src C
+  node *B = malloc (sizeof(node));
+  B->left = four;
+  B->right = nine;
+#+end_src
+
+Creating a house node involves dong four things...; creating a
+non-house node ivolves doing three things. We can capture these steps
+into some helper functions:
+#+begin_src C
+  node *new_house(int candy) {
+    ...
+  }
+#+end_src
+
+#+begin_src C
+  node *new_nonhouse(node *left, node *right) {
+    ...
+  }
+#+end_src
+
+Now, to create a non-house node (node B) having the house with the 4
+candy value as a left child and the house with the 9 candy value as a
+right child, instead of doing what we did above, we can simply do:
+#+begin_src C
+  node *four = new_house(4);
+  node *nine = new_house(9);
+  node *B = new_nonhouse(four, nine);
+#+end_src
+*** Collecting all the candy
+So, we got two tasks: (i) calculating the number of street required to
+collect all the candy; (ii) calculating the total amount of candy in
+the tree. We'll start with the second. We will have to write the
+content of the following function:
+#+begin_src C
+int tree_candy(node *tree);
+#+end_src
+
+Zingaro here shows two way of doing it. First, a solution using a
+stack, a LIFO (Last In First Out) data structure; second, using a
+recursive solution.
+**** Stack solution
+[...]
+**** Recursive solution
+The stack solution focuses on the particular steps. The recursive
+solution focuses on the structure of the problem.
+
+Take the following two rules:
+- Rule 1: If the root of the tree is a house node, then the total
+  amount of candy in the tree equals the amount of candy at that node.
+- Rule 2: If the root is a non-house, then the total amount of candy
+  equals the total amount of candy in the left subtree pluse the total
+  amount of candy in the right subtree.
+
+This is a /recursive/ definiton.
+#+begin_quote
+A definition is recursive if it offers a solution to a problem by
+referring to solutions to subproblems.
+#+end_quote
+
+Here are the rules in code:
+#+begin_src C
+  int tree_candy(node *tree) {
+      if (!tree->left && !tree->right)
+          return tree->candy;
+      return tree_candy(tree->left) + tree_candy(tree->right);
+  }
+#+end_src
+
+Done!  (For some quality training on recursive thinking check The
+Little Schemer...)
+**** Calculating the Number of Streets
+How to calculat the number of streets now? Recursion!
+
+- Rule 1: If the root of the tree is a house node, then the number of
+  street we walk is zero.
+- Rule 2: If the root of the tree is a non-house node, then the number
+  of streets we walk is the number of streets we walk for the left
+  subtree plus the number of streets we walk for the right subtree
+  plus 4.
+
+In code:
+#+begin_src C
+int tree_streets(node *tree) {
+    if (!tree->left && !tree->right)
+	return 0;
+    return tree_streets(tree->left) + tree_streets(tree->right) + 4;
+}
+#+end_src
+
+If in the sample tree (check the book!), you perform a walk collecting
+all the candy and ending at H (the root), you will have walked 32
+streets. But we don't have to end at H. Plan: let's end the walk at a
+house located the max number of streets away from the root. If that
+house is six streets from the root, it means that there is a path of
+six edges from the root to some leaf. Now, that's the height of the
+tree! So, if we can calculate the height of a tree, then we can just
+do ~tree_streets(tree)~ minus height!
+**** Calculating the tree height
+Recursion, again!
+
+- Rule 1: If the root of the tree is a house node, then the height is zero. 
+- Rule 2: If the root of the tree is a non-house nose, then the tree's
+  height is one more than the maximum of the left subtree's height and
+  the right subtree's height.
+
+We'll use a ~max~ helper function.
+
+#+begin_src C
+  int max(int v1, int v2) {...};
+
+  int tree_height(node *tree) {
+      if (!tree->left && !tree->right)
+          return 0;
+      return 1 + max(tree_height(tree->left), tree_height(tree->right));
+  }
+#+end_src
+**** Reading the input
+Zingaro here (i) explains how the input lines are able to represent trees
+and (ii) writes a function that converts those lines into
+representations of trees in C.
+
+#+begin_src C
+node *read_tree(char * line) {
+    ...    
+}
+#+end_src
+
+**** Main
+We are finally able to write the main function:
+#+begin_src C
+  #define SIZE 255
+  #define TEST_CASE 5
+
+  int main(void) {
+      int i;
+      char line[SIZE + 1];
+      node *tree;
+      for (i = 0; i < TEST_CASES; i++) {
+          gets(line);
+          tree = read_tree(line);
+          tree_solve(tree);
+      }
+      return 0;
+  }
+#+end_src
+
 ** Descendant Distance
 *** The problem
 The number of descendants of a node at distance /d/ is the number of
