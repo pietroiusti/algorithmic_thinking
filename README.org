@@ -6,7 +6,7 @@ paraphrases and additions.
 The source code in the book has also been made available by the author
 at https://www.danielzingaro.com/alg//
 
-* 1
+* 1. Hash Tables
 ** Unique Snowflakes
 *** The Problem
 [[./snowflakes.png]]
@@ -440,7 +440,7 @@ We can now write the main function:
   }
 #+end_src
 
-* 2
+* 2. Trees and Recursion
 ** Halloween Haul
 *** The Problem
 You are given some /full binary trees/ each of which represents a
@@ -459,7 +459,7 @@ the candy and one for the total amount of candy obtained.
   typedef struct node {
       int candy;
       struct node *left, *right;
-  }
+  } node;
 #+end_src
 
 As an example, we can create the node representing a house holding
@@ -493,13 +493,28 @@ non-house node ivolves doing three things. We can capture these steps
 into some helper functions:
 #+begin_src C
   node *new_house(int candy) {
-    ...
+      node *house = malloc(sizeof(node));
+      if (house == NULL) {
+          fprintf(stderr, "malloc error\n");
+          exit(1);
+      }
+      house->candy = candy;
+      house->left = NULL;
+      house->right = NULL;
+      return house;
   }
 #+end_src
 
 #+begin_src C
   node *new_nonhouse(node *left, node *right) {
-    ...
+      node *nonhouse = malloc(sizeof(node));
+      if (nonhouse == NULL) {
+          fprintf(stderr, "malloc error\n");
+          exit(1);
+      }
+      nonhouse->left = left;
+      nonhouse->right = right;
+      return nonhouse;
   }
 #+end_src
 
@@ -600,16 +615,52 @@ We'll use a ~max~ helper function.
   }
 #+end_src
 **** Reading the input
-Zingaro here (i) explains how the input lines are able to represent trees
-and (ii) writes a function that converts those lines into
+Zingaro explains how the input lines are able to represent trees. The
+way in which the input lines represent trees is the same in which Lisp
+lists are classically taken to represent trees, as explained by [[https://mitpress.mit.edu/sites/default/files/sicp/full-text/sicp/book/node34.html][SICP]].
+
+Zingaro writes a function that converts those lines into
 representations of trees in C.
 
+We will need to pass some additional information to the recursive
+calls (besides the string), so we will use an additional parameter to
+the string. But we can use a helper function (~read_tree_helper~), so
+our main function will only (~read_tree~) take a string.
 #+begin_src C
-node *read_tree(char * line) {
-    ...    
-}
+  node *read_tree(char *line) {
+      int pos = 0;
+      return read_tree_helper(line, &pos);
+  }
 #+end_src
-
+#+begin_src C
+  node  *read_tree_helper(char *line, int *pos) {
+      node *tree;
+      tree = malloc(sizeof(node));
+      if (tree == NULL) {
+          fprintf(stderr, "malloc error\n");
+          exit(1);
+      }
+      if (line[*pos] == '(') {
+          (*pos)++;
+          tree->left = read_tree_helper(line, pos);
+          (*pos)++;
+          tree->right = read_tree_helper(line, pos);
+          (*pos)++;
+          return tree;
+      } else {
+          tree->left = NULL;
+          tree->right = NULL;
+          tree->candy = line[*pos] - '0';
+          (*pos)++;
+          if (line[*pos] != ')' && line[*pos] != ' ' &&
+              line[*pos] != '\0') {
+              tree->candy = tree->candy * 10 + line[*pos] - '0';
+              (*pos)++;
+          }
+          return tree;
+      }
+  }
+#+end_src
 **** Main
 We are finally able to write the main function:
 #+begin_src C
@@ -1034,15 +1085,15 @@ easier. A problem made easier by virtue of knowing its subproblem
 solutions is a strong clue that recursion applies.
 #+end_quote
 
-* 3
+* 3. Memoization and Dynamic Programming
 ** Burger Fervor
 *** The problem
 Homer has /t/ minutes and some burgers of two types. One type takes
 /m/ minutes to eat and the other type takes /m/ minutes to eat. Homer
 wants to spend all /t/ minutes eating burgers, but sometimes that's
 not possible. If he can spend exactly /t/ minutes eating burgers, we
-have to determine the max number of burgers he cant eat. If he can't
-spend /t/ minutes eating burgers, we have to determin the max amount
+have to determine the max number of burgers he can eat. If he can't
+spend /t/ minutes eating burgers, we have to determine the max amount
 of time he can spend eating burgers.
 
 **** Input
@@ -1234,7 +1285,7 @@ we already exceed the time-limit!
 #+end_src
 
 A way in which we could save some work is avoiding call solve_t with
-value with which we have already called it.
+values with which we have already called it.
 
 Here is our previous solution with some code that counts the number of
 times solve_t is called:
@@ -1901,7 +1952,7 @@ exercise is implementing a dynamic programming solution.
   }
 #+end_src
 
-* 4
+* 4. Graphs and Breadth-First Search
 ** Knight Chase
 *** The Problem
 [[./dmoj_ccc99s4.png]]
@@ -2601,7 +2652,7 @@ Helper functions:
   }
 #+end_src
 
-* 5
+* 5. Shortest Paths in Weighted Graphs
 ** Mice Maze
 *** The Problem
 [[./mice_maze.png]]
@@ -2816,7 +2867,7 @@ cell. Way to optimize this algorithm will be shown later.
   }
 #+end_src
 
-* 6
+* 6. Binary Search
 ** Feeding Ants
 *** The problem
 DMOJ coci14c4p4
@@ -3271,7 +3322,7 @@ a single door could take up to 5000 calls of ~tryCombination~. But we
 are allowed to call ~tryCombination~ up to 70000 times and we could
 have 5000 doors!
 
-* 7
+* 7. Heaps and Segment Trees
 ** Supermarket Promotion
 *** The problem
 SPOJ problem PRO.
