@@ -681,18 +681,73 @@ We are finally able to write the main function:
 #+end_src
 
 ** Descendant Distance
+We'll now have a look a trees beyond binary trees.
 *** The problem
-The number of descendants of a node at distance /d/ is the number of
-nodes that are exactly /d/ edges down the tree from that node
+(DMOJ problem ecna05b.) The number of descendants of a node at
+distance /d/ is the number of nodes that are exactly /d/ edges down
+the tree from that node.
 
 We are given a family tree and a distance /d/. We have to output the
 nodes with a high number of descendants at distance /d/.
 
 *** Input
-pp. 58-9.
+- First line: the number of test cases.
+
+- For each test case:
+  - A line containing two integers: /n/ (how many more lines there are
+    for this test case) and /d/ (the descendant distance of interest).
+
+  - /n/ lines used to build the tree, each of which is constitude by the
+    name of a node, an integer /m/, and /m/ names for the children of the
+    node (in any order and max 10 char long).
+
+Example:
+#+begin_src
+1
+7 2
+Lucas 1 Enzo
+Zara 1 Amber
+Sana 2 Gabriel Lucas
+Enzo 2 Min Becky
+Kevin 2 Jad Cassie
+Amber 4 Vlad Sana Ashley Kevin
+Vlad 1 Omar
+#+end_src
 *** Output
-p. 59.
+First
+#+begin_src
+Tree i:
+#+end_src
+where i is the number of the test case.
+
+Then, names with high scores are output, sorted from most to least. If
+some nodes have the same score, then they are output in alphabetical
+order.
+
+If there are tree or fewer names, then we output them all. Otherwise
+we also output those, if any, who have a score equal to that of the
+third name.
+
+For each name the name, followed by a space, followed by its number of
+descendants at distance d.
+
+Example of output for the example of input given above:
+#+begin_src
+Tree 1:
+Amber 5
+Zara 4
+Lucas 2
+#+end_src
+
+Time limit: one second.
 *** 
+In Halloween Haul we were dealing with binary trees and, accordingly,
+we were using a node structure with two pointers. However, now we are
+not dealing with binary trees anymore. So we will now use an array
+~children~ of children and an integer ~num_children~ for the number of
+children. Given our problem, we'll also have a ~name~ string to store
+the node's name and an integer ~score~ for the score.
+
 #+begin_src C
   typedef struct node {
       char *name;
@@ -702,11 +757,10 @@ p. 59.
   } node;
 #+end_src
 
-
 #+begin_quote
-we’ll maintain an array of pointers to nodes. Every time we see a name
-we haven’t seen before, we create a new node and add a pointer to that
-node to the array
+...we’ll maintain an array of pointers to nodes. Every time we see a
+name we haven’t seen before, we create a new node and add a pointer to
+that node to the array
 #+end_quote
 
 It will be useful then to have a helper function that searches a node
@@ -744,8 +798,17 @@ with that name.
   }
 #+end_src
 
+In ~new_node~, we set ~num_children~ to 0, because sometimes we don't
+know how many children a node has; for example when we read:
+#+begin_src
+Lucas 1 Enzo
+#+end_src
+we don't know how many children Enzo has (if we haven't met the node
+Enzo before).
 
-Function to read and build a tree:
+Here is the function to read and build a tree. ~nodes~ is array of
+pointers to node, with space allocated by the caller. ~num_lines~ is
+the number of lines to read.
 #+begin_src C
   int read_tree(node *nodes[], int num_lines) {
       node *parent_node, *child_node;
@@ -784,15 +847,17 @@ Function to read and build a tree:
   }
 #+end_src
 
-Let's write a function that calculates the number of descendants at
-distance /d/ from a single node. How?
+Before writing a function to calcuate the number of descendants at
+distance /d/ for all nodes, let's now write a function ~score_one~
+that calculates the number of descendants at distance /d/ from a
+single node. How?
 
 Given a node /n/:
 - Rule 1. If /d/ equals one, then the number of descendants at
   distance /d/ equals the number of children of /n/.
 - Rule 2. If /d/ is greater than one, then then number of descendants
   at distance /d/ equals the sum of the nodes at distance /d/-1 in
-  each subtree of /n/
+  each subtree of /n/.
 
 In C:
 #+begin_src C
@@ -807,7 +872,8 @@ In C:
   }
 #+end_src
 
-To calculate the number of descendants at distance /d/ for all nodes:
+Now we can calculate the number of descendants at distance /d/ for all
+nodes:
 #+begin_src C
   void score_all (node **nodes, int num_nodes, int d) {
       int i;
