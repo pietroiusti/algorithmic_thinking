@@ -9,7 +9,7 @@ at https://www.danielzingaro.com/alg//
 * 1. Hash Tables
 ** Unique Snowflakes
 *** The Problem
-[[./snowflakes.png]]
+[[./img/snowflakes.png]]
 *** First (Too Slow) Solution
 #+begin_src C
   #include <stdio.h>
@@ -1822,9 +1822,9 @@ The book stops here with respect to this problem. However a possible
 exercise is implementing a dynamic programming solution.
 
 ** Hockey Rivalry 
-[[./cco18p1_1.png]]
-[[./cco18p1_2.png]]
-[[./cco18p1_3.png]]
+[[./img/cco18p1_1.png]]
+[[./img/cco18p1_2.png]]
+[[./img/cco18p1_3.png]]
 
 *** Recursive Solution
 #+begin_src C
@@ -2021,9 +2021,9 @@ exercise is implementing a dynamic programming solution.
 * 4. Graphs and Breadth-First Search
 ** Knight Chase
 *** The Problem
-[[./dmoj_ccc99s4.png]]
+[[./img/dmoj_ccc99s4.png]]
 
-[[./sample_input_output.png]]
+[[./img/sample_input_output.png]]
 *** Moving Optimally
 If we had an algorithm to determine the minimum number of moves that
 the knight can take from its starting point to some destiantion, then
@@ -2230,9 +2230,9 @@ Remove the following bit from ~find_distance~!
 #+end_src
 ** Rope Climb
 
-[[./rope_climb.png]]
+[[./img/rope_climb.png]]
 
-[[./rope_climb_input_output_sample.png]]
+[[./img/rope_climb_input_output_sample.png]]
 
 
 We closely follow what we did for Knight Chase. Here, at it was there,
@@ -2368,7 +2368,7 @@ edges in the graph.
 
 You can see where the problem lies by looking at Figure 4-5:
 
-[[./figure_4-5.png]]
+[[./img/figure_4-5.png]]
 
 Fall edges grow quadratically...
 
@@ -2396,7 +2396,7 @@ This way we have doubled the number of nodes but we have drastically
 decreased the number of edges. For height /h/, we have about 4h
 edges. Linear!
 
-[[./figure_4-6.png]]
+[[./img/figure_4-6.png]]
 
 This an example of a *weighted graph*, where each edge is given a
 weight or cost (here each edge either costs one move or zero moves).
@@ -2527,9 +2527,9 @@ function, and update the ~solve~ function:
 #+end_src
 ** Book Translation
 *** 
-[[./book_translation.png]]
+[[./img/book_translation.png]]
 
-[[./book_translation_sample.png]]
+[[./img/book_translation_sample.png]]
 
 *** Building the Graph
 The goal is to minimize the number of translations, not to spend
@@ -2721,9 +2721,9 @@ Helper functions:
 * 5. Shortest Paths in Weighted Graphs
 ** Mice Maze
 *** The Problem
-[[./mice_maze.png]]
+[[./img/mice_maze.png]]
 
-[[./mice_maze_sample.png]]
+[[./img/mice_maze_sample.png]]
 
 *** Moving On from BFS
 
@@ -3393,7 +3393,7 @@ have 5000 doors!
 *** The problem
 SPOJ problem PRO.
 
-[[./problem.png]]
+[[./img/problem.png]]
 
 *** Solution 1: Maximum and Minimum in an Array
 We can simply store new receipt into an array. Instead of removing the
