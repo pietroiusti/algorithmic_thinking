@@ -810,6 +810,8 @@ Here is the function to read and build a tree. ~nodes~ is array of
 pointers to node, with space allocated by the caller. ~num_lines~ is
 the number of lines to read.
 #+begin_src C
+  #define MAX_NAME 10
+
   int read_tree(node *nodes[], int num_lines) {
       node *parent_node, *child_node;
       char *parent_name, *child_name;
@@ -895,6 +897,7 @@ function:
       if (n1->score < n2->score)
           return 1;
       return strcmp(n1->name, n2->name);
+  }
 #+end_src
 
 After having sorted the nodes, we must output the names at the
