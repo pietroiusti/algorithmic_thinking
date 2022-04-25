@@ -1035,7 +1035,7 @@ usable in this case. We will use his ~ooat~ function and write a
 #+end_src
 This seems to work. The next step would me using this code to
 Zingaro's solution.
-*** 
+*** Better Solution!
 Here is the new solution using the hash table. We still use the old
 array, but now we also have the hashtable for quicker lookup. Besides
 adding the code shown in the previous section, I only had to made
