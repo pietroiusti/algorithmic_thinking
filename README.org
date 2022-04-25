@@ -701,6 +701,8 @@ nodes with a high number of descendants at distance /d/.
     name of a node, an integer /m/, and /m/ names for the children of the
     node (in any order and max 10 char long).
 
+There are at most 1,000 nodes in any test case.
+
 Example:
 #+begin_src
 1
@@ -938,6 +940,101 @@ beginning of the nodes array:
       return 0;
   }
 #+end_src
+
+Execution Results on dmoj:
+#+begin_quote
+Test case #1:	AC	[0.024s,	2.49 MB]	(100/100)
+
+Resources: 0.024s, 2.49 MB
+Maximum single-case runtime: 0.024s
+Final score: 100/100 (10.0/10 points)
+#+end_quote
+*** Extra: adding a hash table
+When defining ~find_node~, Zingaro says that we could have used a hash
+table and invites the reader to try. Let's do it!
+
+Let's first adapt Zingaro's hash table code in th previous chapt to be
+usable in this case:
+#+begin_src C
+  typedef struct tree_node {      
+      char *name;
+      int num_children;
+      struct tree_node **children;
+      int score;             
+  } tree_node;
+
+  #define hashsize(n) ((unsigned long)1 << (n))
+  #define hashmask(n) (hashsize(n) - 1)
+  unsigned long oaat(char *key, unsigned long len,
+                     unsigned long bits) {
+      unsigned long hash, i;
+      for (hash = 0, i = 0; i < len; i++) {
+          hash += key[i];
+          hash += (hash << 10);
+          hash ^= (hash >> 6);
+      }
+      hash += (hash << 3);
+      hash ^= (hash >> 11);
+      hash += (hash << 15);
+      return hash & hashmask(bits);
+  }
+
+  typedef struct ht_node {
+      char *key;
+      tree_node *val;
+      struct ht_node *next;
+  } ht_node;
+
+  static ht_node *hashtable[1024]; // the max number of tree nodes in a
+                                   // test case is 1000. Cf. third param
+                                   // of oaat.
+
+  tree_node *lookup(char *key) {
+      ht_node *p;
+      for (p = hashtable[oaat(key, strlen(key), 10)]; p != NULL; p = p->next) {
+          if (strcmp(p->key, key) == 0) {
+              return p->val;
+          }
+      }
+      return NULL;
+  }
+
+  ht_node *install(tree_node *val) {
+      ht_node *p = (ht_node *)malloc(sizeof(ht_node));
+      if (p == NULL)
+          return NULL;
+    
+      p->key = val->name;
+      p->val = val;
+
+      unsigned long hash = oaat(val->name, strlen(val->name), 10);
+
+      p->next = hashtable[hash];
+      hashtable[hash] = p;
+
+      return p;
+  }
+
+  int main (void) {
+
+      tree_node giulio;
+      giulio.name = "Giulio";
+      giulio.children = NULL;
+    
+      install(&giulio);
+
+      tree_node* found = lookup("Giulio");
+
+    
+
+      printf("%s\n", found->name);
+
+      return 0;
+  }
+#+end_src
+This seems to work. The next step would me merging this code into the
+hashtable-less solution.
+
 ** Tree Candy
 *** Problem
 *Input*: five lines. Each is at most 255 chars. Each describes a
