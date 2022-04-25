@@ -954,7 +954,8 @@ When defining ~find_node~, Zingaro says that we could have used a hash
 table and invites the reader to try. Let's do it!
 
 Let's first adapt Zingaro's hash table code in th previous chapt to be
-usable in this case:
+usable in this case. We will use his ~ooat~ function and write a
+~lookup~ function and an ~install~ function:
 #+begin_src C
   typedef struct tree_node {      
       char *name;
@@ -1003,7 +1004,7 @@ usable in this case:
       ht_node *p = (ht_node *)malloc(sizeof(ht_node));
       if (p == NULL)
           return NULL;
-    
+
       p->key = val->name;
       p->val = val;
 
@@ -1017,23 +1018,235 @@ usable in this case:
 
   int main (void) {
 
+      // let's see if it works
+
       tree_node giulio;
       giulio.name = "Giulio";
       giulio.children = NULL;
-    
+
       install(&giulio);
 
       tree_node* found = lookup("Giulio");
-
-    
 
       printf("%s\n", found->name);
 
       return 0;
   }
 #+end_src
-This seems to work. The next step would me merging this code into the
-hashtable-less solution.
+This seems to work. The next step would me using this code to
+Zingaro's solution.
+*** 
+Here is the new solution using the hash table. We still use the old
+array, but now we also have the hashtable for quicker lookup. Besides
+adding the code shown in the previous section, I only had to made
+minimal changes to ~read_tree~ and ~main~ (see commented lines).
+#+begin_src C
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+
+typedef struct node {
+    char *name;
+    int num_children;
+    struct node **children;
+    int score;
+} node;
+
+#define hashsize(n) ((unsigned long)1 << (n))
+#define hashmask(n) (hashsize(n) - 1)
+unsigned long oaat(char *key, unsigned long len,
+		   unsigned long bits) {
+    unsigned long hash, i;
+    for (hash = 0, i = 0; i < len; i++) {
+	hash += key[i];
+	hash += (hash << 10);
+	hash ^= (hash >> 6);
+    }
+    hash += (hash << 3);
+    hash ^= (hash >> 11);
+    hash += (hash << 15);
+    return hash & hashmask(bits);
+}
+
+typedef struct ht_node {
+    char *key;
+    node *val;
+    struct ht_node *next;
+} ht_node;
+
+static ht_node *hashtable[1024]; // the max number of tree nodes in a
+				 // test case is 1000. Cf. third param
+				 // of oaat.
+
+node *lookup(char *key) {
+    ht_node *p;
+    for (p = hashtable[oaat(key, strlen(key), 10)]; p != NULL; p = p->next) {
+	if (strcmp(p->key, key) == 0) {
+	    return p->val;
+	}
+    }
+    return NULL;
+}
+
+ht_node *install(node *val) {
+    ht_node *p = (ht_node *)malloc(sizeof(ht_node));
+    if (p == NULL)
+	return NULL;
+    
+    p->key = val->name;
+    p->val = val;
+
+    unsigned long hash = oaat(val->name, strlen(val->name), 10);
+
+    p->next = hashtable[hash];
+    hashtable[hash] = p;
+
+    return p;
+}
+
+node *find_node(node *nodes[], int num_nodes, char *name) {
+    int i;
+    for (i = 0; i < num_nodes; i++)
+	if (strcmp(nodes[i]->name, name) == 0)
+	    return nodes[i];
+    return NULL;
+}
+
+void *malloc_safe(int size) {
+    char *mem = malloc(size);
+    if (mem == NULL) {
+	fprintf(stderr, "malloc error\n");
+	exit(1);
+    }
+    return mem;
+}
+
+node *new_node(char *name) {
+    node *n = malloc_safe(sizeof(node));
+    n->name = name;
+    n->num_children = 0;
+    return n;
+}
+
+#define MAX_NAME 10
+
+int read_tree(node *nodes[], int num_lines) {
+    node *parent_node, *child_node;
+    char *parent_name, *child_name;
+    int i, j, num_children;
+    int num_nodes = 0;
+    for (i = 0; i < num_lines; i++) {
+	parent_name = malloc_safe(MAX_NAME + 1);
+	scanf("%s", parent_name);
+	scanf("%d", &num_children);
+	// parent_node = find_node(nodes, num_nodes, parent_name); /*OLD*/
+	parent_node = lookup(parent_name);
+	if (parent_node == NULL) {
+	    parent_node = new_node(parent_name);
+	    nodes[num_nodes] = parent_node;
+	    num_nodes++;
+	    install(parent_node); // install in the hash table too
+	}
+	else
+	    free(parent_name);
+	parent_node->children = malloc_safe(sizeof(node) * num_children);
+	parent_node->num_children = num_children;
+	for (j = 0; j < num_children; j++) {
+	    child_name = malloc_safe(MAX_NAME + 1);
+	    scanf("%s", child_name);
+	    // child_node = find_node(nodes, num_nodes, child_name); /*OLD*/
+	    child_node = lookup(child_name);
+	    if (child_node == NULL) {
+		child_node = new_node(child_name);
+		nodes[num_nodes] = child_node;
+		num_nodes++;
+		install(child_node); // install in the hash table too
+	    }
+	    else
+		free(child_name);
+	    parent_node->children[j] = child_node;
+	}
+    }
+    return num_nodes;
+}
+
+int score_one(node *n, int d) {
+    int total, i;
+    if (d == 1)
+	return n->num_children;
+    total = 0;
+    for (i = 0; i < n->num_children; i++)
+	total = total + score_one(n->children[i], d - 1);
+    return total;
+}
+
+void score_all (node **nodes, int num_nodes, int d) {
+    int i;
+    for(i = 0; i < num_nodes; i++)
+	nodes[i]->score = score_one(nodes[i], d);
+}
+
+int compare(const void *v1, const void *v2) {
+    const node *n1 = *(const node **)v1;
+    const node *n2 = *(const node **)v2;
+    if (n1->score > n2->score)
+	return -1;
+    if (n1->score < n2->score)
+	return 1;
+    return strcmp(n1->name, n2->name);
+}
+
+void output_info(node *nodes[], int num_nodes) {
+    int i = 0;
+    while (i < 3 && i < num_nodes && nodes[i]->score > 0) {
+	printf("%s %d\n", nodes[i]->name, nodes[i]->score);
+	i++;
+	while (i < num_nodes &&
+	       nodes[i]->score == nodes[i-1]->score) {
+	    printf("%s %d\n", nodes[i]->name, nodes[i]->score);
+	    i++;
+	}
+    }
+}
+
+#define MAX_NODES 1000
+
+int main(void) {
+    int num_cases, case_num;
+    int n, d, num_nodes;
+    node **nodes = malloc_safe(sizeof(node) * MAX_NODES);
+    scanf("%d", &num_cases);
+    for (case_num = 1; case_num <= num_cases; case_num++) {
+
+	memset(hashtable, 0, sizeof(hashtable)); // set hashtable to null each time
+
+	printf("Tree %d:\n", case_num);
+	scanf("%d %d", &n, &d);
+	num_nodes = read_tree(nodes, n);
+	score_all(nodes, num_nodes, d);
+	qsort(nodes, num_nodes, sizeof(node*), compare);
+	output_info(nodes, num_nodes);
+	if (case_num < num_cases)
+	    printf("\n");
+    }
+    return 0;
+}
+#+end_src
+
+
+We can see our code is faster! It works!
+#+begin_quote
+Execution Results
+
+
+
+Test case #1:	AC	[0.009s,	2.78 MB]	(100/100)
+
+
+Resources: 0.009s, 2.78 MB
+Maximum single-case runtime: 0.009s
+Final score: 100/100 (10.0/10 points)
+#+end_quote
 
 ** Tree Candy
 *** Problem
